@@ -1,3 +1,5 @@
+-e git+https://github.com/gdanezis/rousseau-chain#egg=hippiehug&subdirectory=hippiehug-package
+-e git+https://github.com/gdanezis/claimchain-core#egg=claimchain
 jupyter
 matplotlib
 pandas

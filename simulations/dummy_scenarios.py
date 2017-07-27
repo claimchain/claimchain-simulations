@@ -13,8 +13,8 @@ from collections import defaultdict
 from attr import Factory, attrs, attrib, evolve as clone
 from defaultcontext import with_default_context
 
-from .parse_enron import Message
 from .utils import SimulationParams, EncStatus
+from scripts.parse_enron import Message
 
 
 @attrs
@@ -131,9 +131,9 @@ class GlobalState(object):
     def record_sent_email(self, user, recipients):
         self.nb_sent_emails_by_user[user] += 1
 
-        if user not in self.context.userset or \
-           recipients != recipients.intersection(self.context.userset):
-            return
+        # if user not in self.context.userset or \
+        #    recipients != recipients.intersection(self.context.userset):
+        #     return
 
         self.sent_email_count += 1
 

@@ -1,15 +1,15 @@
 import pytest
 import pickle
 
-from .parse_enron import Message
-from .utils import Context, SimulationParams
+from scripts.parse_enron import Message
+from simulations.utils import Context, SimulationParams
 
 import __main__
 __main__.Message = Message
 
 
 parsed_logs_folder = 'Enron/parsing/'
-log_entries_lim = 10000
+log_entries_lim = 1000
 
 
 @pytest.fixture

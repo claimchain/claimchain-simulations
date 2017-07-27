@@ -3,7 +3,7 @@ import pytest
 from hippiehug import Chain
 from claimchain import View, State, LocalParams
 
-from .agent import *
+from simulations.agent import *
 
 
 @pytest.fixture

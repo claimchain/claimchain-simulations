@@ -4,7 +4,7 @@ from msgpack import packb
 from claimchain.utils.wrappers import serialize_object
 
 from .utils import EncStatus
-from .agent import Agent, SimulationParams, GlobalState, ENC_KEY_LABEL
+from .agent import Agent, SimulationParams, GlobalState
 
 
 def serialize_store(store):
@@ -38,7 +38,7 @@ def get_encryption_status(global_state, user_email, recipient_emails):
         if view is None:
             return EncStatus.plaintext
 
-        view_enc_key = user._maybe_get_from_view(view, ENC_KEY_LABEL)
+        view_enc_key = view.enc_key
         if view_enc_key is None:
             return EncStatus.plaintext
 
@@ -69,18 +69,88 @@ def simulate_public_claimchain(context):
 
     for index, email in enumerate(context.log):
         recipient_emails = email.To | email.Cc | email.Bcc - {email.From}
+        if len(recipient_emails) == 0:
+            continue
 
         user = global_state.agents[email.From]
-        user.maybe_update_key()
-        user.maybe_update_chain()
 
-        # Allow recipients to access claims about each other
-        for recipient_email in recipient_emails:
-            others = recipient_emails - {recipient_email}
-            user.add_expected_reader(recipient_email, others)
+        user.maybe_update_key()
+        user.update_chain()
 
         # Send the email
         head, email_store = user.send_message(recipient_emails)
+
+        # Check if the email is plaintext, encrypted, or stale
+        enc_status = get_encryption_status(
+                global_state, email.From, recipient_emails)
+        encryption_status_data.loc[index] = enc_status
+
+        # Record bandwidth and cache size
+        if email.From in context.userset:
+            packed_message = packb((head, serialize_store(email_store)))
+            bandwidth_data[email.From].loc[index] = len(packed_message)
+
+            packed_sender_cache = serialize_caches(user.sent_email_store_cache)
+            sender_cache_data[email.From].loc[index] = len(packed_sender_cache)
+
+        # Update states of recipients
+        for recipient_email in recipient_emails.intersection(context.senders):
+            recipient = global_state.agents[recipient_email]
+            recipient.receive_message(email.From, head, email_store)
+
+            # Allow public to access claims about recipients
+            recipients.add_expected_reader('public', email.From)
+
+            # Record receiver store size
+            packed_recipient_stores = \
+                    packb([serialize_store(s) for s in recipient.stores.values()])
+            recipient_store_data[recipient_email].loc[index] = \
+                    len(packed_recipient_stores)
+
+        if index % 1000 == 0:
+            print(index)
+
+    print('Emails: Sent: %d, Encrypted: %d' % (
+        global_state.sent_email_count,
+        global_state.encrypted_email_count))
+
+    return encryption_status_data, sender_cache_data, recipient_store_data, \
+           bandwidth_data
+
+
+def simulate_private_claimchain(context):
+    print("Simulating the ClaimChain with public claims:")
+    print(SimulationParams.get_default())
+
+    global_state = GlobalState(context)
+
+    key_propagation_data = pd.DataFrame(columns=('Updated', 'Stale'))
+    head_propagation_data = pd.DataFrame(columns=('Updated', 'Stale'))
+    encryption_status_data = pd.Series()
+
+    sender_cache_data = {sender: pd.Series() for sender in context.senders}
+    recipient_store_data = {sender: pd.Series() for sender in context.senders}
+    bandwidth_data = {sender: pd.Series() for sender in context.senders}
+
+    for index, email in enumerate(context.log):
+        public_recipient_emails = email.To | email.Cc
+        recipient_emails = email.To | email.Cc | email.Bcc - {email.From}
+        if len(recipient_emails) == 0:
+            continue
+
+        user = global_state.agents[email.From]
+
+        # Allow recipients to access claims about other public recipients
+        for recipient_email in recipient_emails:
+            others = public_recipient_emails - {recipient_email}
+            user.add_expected_reader(recipient_email, others)
+
+        user.maybe_update_key()
+        user.maybe_update_chain()
+
+        # Send the email
+        head, accessible_contacts, email_store = user.send_message(
+                recipient_emails)
 
         # Check if the email is plaintext, encrypted, or stale
         enc_status = get_encryption_status(
@@ -105,6 +175,9 @@ def simulate_public_claimchain(context):
                     packb([serialize_store(s) for s in recipient.stores.values()])
             recipient_store_data[recipient_email].loc[index] = \
                     len(packed_recipient_stores)
+
+        if index % 1000 == 0:
+            print(index)
 
     print('Emails: Sent: %d, Encrypted: %d' % (
         global_state.sent_email_count,

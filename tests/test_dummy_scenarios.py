@@ -5,7 +5,7 @@ import pickle
 
 import numpy as np
 
-from .dummy_scenarios import *
+from simulations.dummy_scenarios import *
 
 
 update_chain_thresh = 0

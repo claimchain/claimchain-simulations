@@ -144,7 +144,7 @@ class Agent(object):
         # Otherwise, resolve conflicts using a policy
         view = policy(candidate_views)
         committed_view = self.committed_views.get(contact)
-        if committed_view is not None and committed_view.head != view.head:
+        if committed_view is None or committed_view.head != view.head:
             self.queued_views[contact] = view
         return view
 
@@ -277,13 +277,13 @@ class Agent(object):
             for contact in {sender} | contacts:
                 self.get_latest_view(contact)
 
-    def get_contact_head_from_view(self, view, claim_label):
+    def get_contact_head_from_view(self, view, contact):
         with self.params.as_default():
-            claim = view.get(claim_label)
+            claim = view.get(contact)
             if claim is not None:
                 return claim
         with PUBLIC_READER_PARAMS.as_default():
-            claim = view.get(claim_label)
+            claim = view.get(contact)
         return claim
 
     def update_chain(self):
