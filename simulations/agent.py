@@ -1,6 +1,8 @@
 import os
+import six
 import base64
 import warnings
+import itertools
 
 from collections import defaultdict
 
@@ -91,6 +93,7 @@ class Agent(object):
         self.queued_caps = defaultdict(set)
         self.queued_views = {}
 
+        # Beliefs of other people about other people
         self.global_views = defaultdict(dict)
         self.contacts_by_sender = defaultdict(set)
 
@@ -121,18 +124,28 @@ class Agent(object):
             self.queued_caps[reader].update(contacts)
 
     def get_latest_view(self, contact):
+        """
+        Resolve latest view for contact through social policy
+
+        The method gathers candidate views for contact across local state,
+        and runs social validation policy to decide on the best candidate.
+
+        As a side effect, puts the resolved view in the queue.
+        """
         policy = self.conflict_resolution_policy
 
         # Collect possible candidates
-        current_views = dict(self.committed_views)
-        current_views.update(self.queued_views)
         candidate_views = set()
-        if contact in current_views:
-            candidate_views.add(current_views[contact])
+        # Starting with existing views of the contact
+        if contact in self.committed_views:
+            candidate_views.add(self.committed_views[contact])
+        if contact in self.queued_views:
+            candidate_views.add(self.queued_views[contact])
 
-        for friend in current_views:
-            if friend == contact:
-                continue
+        # Get view of contact in question by each friend
+        current_friends = set(self.committed_views.keys()) \
+                        | set(self.queued_views.keys())
+        for friend in current_friends - {contact}:
             candidate_view = self.global_views[friend].get(contact)
             if candidate_view is not None:
                 candidate_views.add(candidate_view)
@@ -143,14 +156,27 @@ class Agent(object):
 
         # Otherwise, resolve conflicts using a policy
         view = policy(candidate_views)
+        self.queued_views[contact] = view
+
+        # Remove from queue, if same as committed
         committed_view = self.committed_views.get(contact)
-        if committed_view is None or committed_view.head != view.head:
-            self.queued_views[contact] = view
+        if view == committed_view:
+            del self.queued_views[contact]
+
         return view
 
     def send_message(self, recipients):
+        """
+        Compute additional data to be sent to recipients
+
+        :param recipients: An iterable of recipient identifiers (emails)
+        :returns: Chain head, public contacts, and object store part
+        """
         if len(recipients) == 0:
             return
+        if isinstance(recipients, six.string_types):
+            warnings.warn("Recipients is a string type, an iterable of "
+                          "identifiers is expected.")
         if not isinstance(recipients, set):
             recipients = set(recipients)
 
@@ -231,6 +257,9 @@ class Agent(object):
 
     def get_accessible_contacts(self, sender, message_metadata,
                                 other_recipients=None):
+        """
+        Get the contacts that are expected to be accessible on sender's chain
+        """
         # NOTE: Assumes other people's introduction policy is the same
         contacts = self.contacts_by_sender[sender]
         sender_head, public_contacts, message_store = message_metadata
@@ -241,6 +270,14 @@ class Agent(object):
 
     def receive_message(self, sender, message_metadata,
                         other_recipients=None):
+        """
+        Interpret incoming additional data
+
+        :param sender: Sender identifier
+        :param message_metadata: Additional data obtained by ``send_message``
+        :param other_recipients: Identifiers of other known recipients of the
+                                 message
+        """
         sender_head, public_contacts, message_store = message_metadata
         if other_recipients is None:
             other_recipients = set()
@@ -278,6 +315,13 @@ class Agent(object):
                 self.get_latest_view(contact)
 
     def get_contact_head_from_view(self, view, contact):
+        """
+        Try accessing cross-reference claim as yourself, and as a public reader
+
+        :param view: View to query
+        :param contact: Contact of interest
+        :returns: Contacts head, or None
+        """
         with self.params.as_default():
             claim = view.get(contact)
             if claim is not None:
@@ -287,13 +331,12 @@ class Agent(object):
         return claim
 
     def update_chain(self):
+        """
+        Force chain update
+
+        Commits views and capabilities in the queues to the chain
+        """
         with self.params.as_default():
-            # Get heads of views in the buffer into the claimchain state,
-            # and move the buffer views into main views
-            for friend, view in self.queued_views.items():
-                claim = view.chain.head
-                if claim is not None:
-                    self.state[friend] = claim
 
             # Get capabilities in the capability buffer into the claimchain
             # state, for those subjects whose keys are known.
@@ -308,6 +351,7 @@ class Agent(object):
                     friend_dh_pk = PUBLIC_READER_PARAMS.dh.pk
 
                 # Else try to find the DH key in views
+                # NOTE: This may update self.queued_views
                 else:
                     view = self.get_latest_view(friend)
                     if view is not None:
@@ -321,6 +365,13 @@ class Agent(object):
             # Add the latest encryption key
             if self.queued_identity_info is not None:
                 self.state.identity_info = self.queued_identity_info
+
+            # Get heads of views in the buffer into the claimchain state,
+            # and move the buffer views into main views
+            for friend, view in self.queued_views.items():
+                claim = view.chain.head
+                if claim is not None:
+                    self.state[friend] = claim
 
             # Commit state
             head = self.state.commit(target_chain=self.chain,
