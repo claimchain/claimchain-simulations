@@ -85,19 +85,25 @@ class Agent(object):
         self.chain = Chain(self.chain_store)
         self.state = State()
 
+        # Stats
         self.nb_sent_emails = 0
 
+        # Committed views and capabilities
         self.committed_caps = defaultdict(set)
         self.committed_views = {}
+        # ...and the ones queued to be committed.
         self.queued_identity_info = None
         self.queued_caps = defaultdict(set)
         self.queued_views = {}
 
-        # Beliefs of other people about other people
+        # Known beliefs of other people about other people.
         self.global_views = defaultdict(dict)
+        # Contacts that senders have made available to this agent.
         self.contacts_by_sender = defaultdict(set)
 
+        # Objects that were sent to each recipient.
         self.sent_objects_by_recipient = {}
+        # Objects that were received from other people.
         self.global_store = ObjectStore()
 
         # Generate initial encryption key, and add first block
@@ -136,13 +142,13 @@ class Agent(object):
 
         # Collect possible candidates
         candidate_views = set()
-        # Starting with existing views of the contact
+        # ...starting with existing views of the contact.
         if contact in self.committed_views:
             candidate_views.add(self.committed_views[contact])
         if contact in self.queued_views:
             candidate_views.add(self.queued_views[contact])
 
-        # Get view of contact in question by each friend
+        # Get a view of contact in question from every friend.
         current_friends = set(self.committed_views.keys()) \
                         | set(self.queued_views.keys())
         for friend in current_friends - {contact}:
@@ -150,15 +156,16 @@ class Agent(object):
             if candidate_view is not None:
                 candidate_views.add(candidate_view)
 
-        # If no candidates, return None
+        # If no candidates, return None.
         if len(candidate_views) == 0:
             return None
 
         # Otherwise, resolve conflicts using a policy
         view = policy(candidate_views)
+        # ...and add the resolved view to the queue.
         self.queued_views[contact] = view
 
-        # Remove from queue, if same as committed
+        # Remove from queue if resolved view is the same as committed.
         committed_view = self.committed_views.get(contact)
         if view == committed_view:
             del self.queued_views[contact]
@@ -181,7 +188,7 @@ class Agent(object):
             recipients = set(recipients)
 
         with self.params.as_default():
-            # TODO: Make an introduction policy
+            # TODO: Make introduction a policy
             for recipient in recipients - {self.email}:
                 others = recipients - {self.email, recipient}
                 self.add_expected_reader(recipient, others)
@@ -193,13 +200,12 @@ class Agent(object):
             local_object_keys = set()
             global_object_keys = set()
 
-            # Add own chain blocks
+            # Add own chain blocks.
             # NOTE: Requires that chain and tree use separate stores
             local_object_keys.update(self.chain_store.keys())
 
+            # Add evidence for public claims.
             public_contacts = self.committed_caps[PUBLIC_READER_LABEL]
-
-            # Add evidence for public claims
             for contact in public_contacts:
                 object_keys = self.state.compute_evidence_keys(
                         PUBLIC_READER_PARAMS.dh.pk, contact)
@@ -208,7 +214,7 @@ class Agent(object):
                 if contact_view is not None:
                     global_object_keys.add(contact_view.head)
 
-            # Compute evidence that needs to be sent to all recipients
+            # Compute evidence that needs to be sent to all recipients.
             for recipient in recipients:
                 # NOTE: This assumes that claims contain heads
                 accessible_contacts = self.committed_caps[recipient]
@@ -218,17 +224,17 @@ class Agent(object):
                         continue
                     contact_view = self.committed_views.get(contact)
                     if contact_view is not None:
-                        # Add evidence for cross-references
+                        # Add evidence for cross-references.
                         recipient_dh_pk = recipient_view.params.dh.pk
                         evidence_keys = self.state.compute_evidence_keys(
                                 recipient_dh_pk, contact)
                         local_object_keys.update(evidence_keys)
 
-                        # Add contact's latest block
+                        # Add contact's latest block.
                         global_object_keys.add(contact_view.head)
 
             # Compute the minimal amount of objects that need to be sent in
-            # this email
+            # this message.
             relevant_keys = local_object_keys | global_object_keys
             object_keys_to_send = set()
             for recipient in recipients:
@@ -240,7 +246,7 @@ class Agent(object):
                             self.sent_objects_by_recipient[recipient])
                     object_keys_to_send |= object_keys_for_recipient
 
-            # Gather the objects by keys
+            # Gather the objects by keys.
             message_store = {}
             for key in local_object_keys.intersection(object_keys_to_send):
                 value = self.chain_store.get(key) or self.tree_store.get(key)
@@ -281,8 +287,9 @@ class Agent(object):
         sender_head, public_contacts, message_store = message_metadata
         if other_recipients is None:
             other_recipients = set()
+
         with self.params.as_default():
-            # Merge stores temporarily
+            # Merge stores temporarily.
             merged_store = ObjectStore(self.global_store)
             for key, obj in message_store.items():
                 merged_store[key] = obj
@@ -294,7 +301,7 @@ class Agent(object):
             full_sender_view = View(
                     Chain(merged_store, root_hash=sender_head))
 
-            # Add relevant objects from the message store
+            # Add relevant objects from the message store.
             contacts = self.get_accessible_contacts(
                     sender, message_metadata, other_recipients)
             for contact in contacts:
@@ -310,7 +317,7 @@ class Agent(object):
                 contact_chain = Chain(self.global_store, root_hash=contact_head)
                 self.global_views[sender][contact] = View(contact_chain)
 
-            # Recompute the latest beliefs
+            # Recompute the latest beliefs.
             for contact in {sender} | contacts:
                 self.get_latest_view(contact)
 
@@ -337,7 +344,6 @@ class Agent(object):
         Commits views and capabilities in the queues to the chain
         """
         with self.params.as_default():
-
             # Get capabilities in the capability buffer into the claimchain
             # state, for those subjects whose keys are known.
             added_caps = []
@@ -346,11 +352,11 @@ class Agent(object):
                     continue
 
                 friend_dh_pk = None
-                # If the buffer is for the public 'reader'
+                # If the buffer is for the public 'reader':
                 if friend == PUBLIC_READER_LABEL:
                     friend_dh_pk = PUBLIC_READER_PARAMS.dh.pk
 
-                # Else try to find the DH key in views
+                # Otherwise, try to find the DH key in views.
                 # NOTE: This may update self.queued_views
                 else:
                     view = self.get_latest_view(friend)
@@ -362,12 +368,11 @@ class Agent(object):
                     self.committed_caps[friend].update(contacts)
                     added_caps.append(friend)
 
-            # Add the latest encryption key
+            # Add the latest own encryption key.
             if self.queued_identity_info is not None:
                 self.state.identity_info = self.queued_identity_info
 
-            # Get heads of views in the buffer into the claimchain state,
-            # and move the buffer views into main views
+            # Get heads of queued views into the claimchain state.
             for friend, view in self.queued_views.items():
                 claim = view.chain.head
                 if claim is not None:
