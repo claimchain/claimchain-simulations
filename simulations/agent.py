@@ -108,7 +108,7 @@ class Agent(object):
 
         # Generate initial encryption key, and add first block
         # to the chain
-        self.maybe_update_key(force=True)
+        self.update_key()
 
     @property
     def head(self):
@@ -176,6 +176,8 @@ class Agent(object):
         """
         Compute additional data to be sent to recipients
 
+        NOTE: May update the chain if required by the update policy
+
         :param recipients: An iterable of recipient identifiers (emails)
         :returns: Chain head, public contacts, and object store part
         """
@@ -193,9 +195,20 @@ class Agent(object):
                 others = recipients - {self.email, recipient}
                 self.add_expected_reader(recipient, others)
 
-            policy = self.chain_update_policy
-            if policy(self, recipients):
-                self.update_chain()
+            # Decide whether to update the encryption key
+            # TODO: Make key update decision a policy
+            nb_sent_emails_thresh = SimulationParams.get_default() \
+                    .key_update_every_nb_sent_emails
+
+            if nb_sent_emails_thresh is not None and \
+               self.nb_sent_emails > nb_sent_emails_thresh:
+                self.update_key()
+
+            else:
+                # Decide whether to update the chain
+                policy = self.chain_update_policy
+                if policy(self, recipients):
+                    self.update_chain()
 
             local_object_keys = set()
             global_object_keys = set()
@@ -389,11 +402,9 @@ class Agent(object):
             for subject in added_caps:
                 del self.queued_caps[subject]
 
-    def maybe_update_key(self, force=False):
-        nb_sent_emails_thresh = SimulationParams.get_default() \
-                .key_update_every_nb_sent_emails
-
-        if force or (nb_sent_emails_thresh is not None and \
-                     self.nb_sent_emails > nb_sent_emails_thresh):
-            self.queued_identity_info = Agent.generate_public_key()
-            self.update_chain()
+    def update_key(self):
+        """
+        Force update of the encryption key, and the chain
+        """
+        self.queued_identity_info = Agent.generate_public_key()
+        self.update_chain()
