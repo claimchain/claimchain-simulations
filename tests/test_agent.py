@@ -83,8 +83,8 @@ def test_agent_chain_update():
     # Bob -> Alice
     bob_head0 = bob.head
     message_metadata = bob.send_message(['alice'])
-    # TODO: Is this expected?
-    assert bob.head == bob_head0
+    # Bob updates his chain with Alice's latest view
+    assert bob.head != bob_head0
 
     alice.receive_message('bob', message_metadata)
 
@@ -99,5 +99,4 @@ def test_agent_chain_update():
     # Bob -> Alice once again
     bob_head1 = bob.head
     message_metadata = bob.send_message(['alice'])
-    # TODO: Is this expected?
-    assert bob.head == bob_head1
+    assert bob.head != bob_head1

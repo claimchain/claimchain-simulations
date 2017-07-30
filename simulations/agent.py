@@ -3,6 +3,7 @@ import six
 import base64
 import warnings
 import itertools
+import logging
 
 from collections import defaultdict
 
@@ -10,8 +11,10 @@ from attr import attrs, attrib
 from hippiehug import Chain
 from claimchain import State, View, LocalParams
 from claimchain.utils import ObjectStore
+from defaultcontext import with_default_context
 
-from .utils import SimulationParams
+
+logger = logging.getLogger(__name__)
 
 
 # Instead of using string 'public' as a shared secret for
@@ -22,7 +25,7 @@ PUBLIC_READER_PARAMS = LocalParams.generate()
 PUBLIC_READER_LABEL = 'public'
 
 
-def latest_timestamp_resolution_policy(views):
+def latest_timestamp_resolution_policy(agent, views):
     # NOTE: Naive resolution policy that does not check for forks
     return max(views, key=lambda view: view.payload.timestamp)
 
@@ -42,7 +45,7 @@ def immediate_chain_update_policy(agent, recipients):
 
     # * Update chain if any relevant private cap needs to be updated
     for recipient in recipients:
-        if len(agent.queued_caps[recipient]) > 0:
+        if agent.queued_caps.get(recipient):
             return True
 
     private_contacts = set()
@@ -57,6 +60,20 @@ def immediate_chain_update_policy(agent, recipients):
         return True
 
 
+def implicit_cc_introduction_policy(agent, recipient_emails):
+    logger.info('%s / intro', agent.email)
+    for recipient_email in recipient_emails - {agent.email}:
+        # NOTE: Friends should be able to see what my belief about them is,
+        # so no need to exclude recipient_email from recipient_emails here.
+        agent.add_expected_reader(recipient_email, recipient_emails)
+
+
+
+def public_contacts_policy(agent, recipients_emails):
+    agent.add_expected_reader(PUBLIC_READER_LABEL,
+            agent.committed_views.keys())
+
+
 @attrs
 class MessageMetadata(object):
     head = attrib()
@@ -64,20 +81,21 @@ class MessageMetadata(object):
     store = attrib()
 
 
+@with_default_context(use_empty_init=True)
+@attrs
+class AgentSettings(object):
+    conflict_resolution_policy = attrib(default=latest_timestamp_resolution_policy)
+    chain_update_policy = attrib(default=immediate_chain_update_policy)
+    introduction_policy = attrib(default=implicit_cc_introduction_policy)
+    key_update_every_nb_sent_emails = attrib(default=None)
+
+
 class Agent(object):
     '''
     Simulated claimchain user in the online deployment mode.
     '''
-    def __init__(self, email,
-                 conflict_resolution_policy=None,
-                 chain_update_policy=None):
-
+    def __init__(self, email):
         self.email = email
-        self.conflict_resolution_policy = conflict_resolution_policy \
-                or latest_timestamp_resolution_policy
-        self.chain_update_policy = chain_update_policy \
-                or immediate_chain_update_policy
-
         self.params = LocalParams.generate()
         self.chain_store = ObjectStore()
         self.tree_store = ObjectStore()
@@ -93,8 +111,9 @@ class Agent(object):
         # ...and the ones queued to be committed.
         self.queued_identity_info = None
         self.queued_caps = {}
-        self.expected_caps = {}
         self.queued_views = {}
+        # Capabilities for unknown yet readers and of unknown yet contacts
+        self.expected_caps = defaultdict(set)
 
         # Known beliefs of other people about other people.
         self.global_views = defaultdict(dict)
@@ -116,18 +135,71 @@ class Agent(object):
 
     @property
     def current_enc_key(self):
+        """
+        Current encryption key
+        """
         return self.state.identity_info
 
     @staticmethod
     def generate_public_key():
+        """
+        Generate (fake) public encryption key
+        """
         # 4096 random bits in base64
         return base64.b64encode(os.urandom(4096 // 8))
 
     def add_expected_reader(self, reader, contacts):
-        if reader not in self.queued_caps:
-            self.queued_caps[reader] = set(contacts)
+        """
+        Add contacts to be accessible by the reader
+
+        No need to know the reader's DH key, and contact
+        views at this point. As soon as these will be learned,
+        expected capabilities will be moved to the queue.
+        """
+        if isinstance(contacts, six.string_types):
+            warnings.warn("Contacts is a string type, an iterable of "
+                          "identifiers is expected.")
+
+        logger.info('%s / cap / %s: %s', self.email,
+                    reader, contacts)
+
+        if reader in self.committed_caps:
+            for contact in contacts:
+                if contact in self.committed_caps[reader]:
+                    continue
+                if contact in self.queued_caps[reader]:
+                    continue
+                self.expected_caps[reader].add(contact)
         else:
-            self.queued_caps[reader].update(contacts)
+            self.expected_caps[reader].update(contacts)
+
+        self._update_cap_buffer()
+
+        logger.debug('Expected_caps: %s', self.expected_caps)
+        logger.debug('Queued_caps: %s', self.queued_caps)
+
+    def _update_cap_buffer(self):
+        buffered_contacts_by_reader = defaultdict(set)
+
+        for reader, contacts in self.expected_caps.items():
+            reader_view = self.get_latest_view(reader)
+            if reader_view is None and reader != PUBLIC_READER_LABEL:
+                continue
+
+            for contact in contacts:
+                contact_view = self.get_latest_view(contact)
+                if contact_view is not None:
+                    if reader not in self.queued_caps:
+                        self.queued_caps[reader] = {contact}
+                    else:
+                        self.queued_caps[reader].add(contact)
+                    buffered_contacts_by_reader[reader].add(contact)
+
+        # Clean empty expected_caps entries.
+        for reader, contacts in buffered_contacts_by_reader.items():
+            self.expected_caps[reader] -= contacts
+            if not self.expected_caps[reader]:
+                del self.expected_caps[reader]
 
     def get_latest_view(self, contact, save=True):
         """
@@ -141,7 +213,7 @@ class Agent(object):
         :param contact: Contact identifier
         :param save: Whether to save the resolved view to the queue
         """
-        policy = self.conflict_resolution_policy
+        policy = AgentSettings.get_default().conflict_resolution_policy
 
         # Collect possible candidates
         candidate_views = set()
@@ -164,7 +236,7 @@ class Agent(object):
             return None
 
         # Otherwise, resolve conflicts using a policy
-        view = policy(candidate_views)
+        view = policy(self, candidate_views)
         # ...and add the resolved view to the queue.
         self.queued_views[contact] = view
 
@@ -185,6 +257,8 @@ class Agent(object):
         :param recipients: An iterable of recipient identifiers (emails)
         :returns: ``MessageMetadata`` object
         """
+        logger.info('%s -> %s', self.email, recipients)
+
         if len(recipients) == 0:
             return
         if isinstance(recipients, six.string_types):
@@ -194,14 +268,13 @@ class Agent(object):
             recipients = set(recipients)
 
         with self.params.as_default():
-            # TODO: Make introduction a policy
-            for recipient in recipients - {self.email}:
-                others = recipients - {self.email, recipient}
-                self.add_expected_reader(recipient, others)
+            intro_policy = AgentSettings.get_default().introduction_policy
+            # Grant accesses according to introduction policy.
+            intro_policy(self, recipients)
 
             # Decide whether to update the encryption key
             # TODO: Make key update decision a policy
-            nb_sent_emails_thresh = SimulationParams.get_default() \
+            nb_sent_emails_thresh = AgentSettings.get_default() \
                     .key_update_every_nb_sent_emails
 
             if nb_sent_emails_thresh is not None and \
@@ -210,8 +283,8 @@ class Agent(object):
 
             else:
                 # Decide whether to update the chain
-                policy = self.chain_update_policy
-                if policy(self, recipients):
+                update_policy = AgentSettings.get_default().chain_update_policy
+                if update_policy(self, recipients):
                     self.update_chain()
 
             local_object_keys = set()
@@ -304,6 +377,7 @@ class Agent(object):
         :param other_recipients: Identifiers of other known recipients of the
                                  message
         """
+        logger.info('%s <- %s', self.email, sender)
         if other_recipients is None:
             other_recipients = set()
 
@@ -345,6 +419,10 @@ class Agent(object):
             for contact in {sender} | contacts:
                 self.get_latest_view(contact)
 
+            # TODO: This calls get_latest_view inside, so it can be called
+            # twice per contact. Room for optimization here.
+            self._update_cap_buffer()
+
     def get_contact_head_from_view(self, view, contact):
         """
         Try accessing cross-reference claim as yourself, and as a public reader
@@ -367,33 +445,14 @@ class Agent(object):
 
         Commits views and capabilities in the queues to the chain
         """
+        logger.info('%s / chain update', self.email)
+
         with self.params.as_default():
-            # Get capabilities in the capability buffer into the claimchain
-            # state, for those subjects whose keys are known.
-            added_caps = []
+            # Refresh views of all friends and contacts in queued capabilities.
             for friend, contacts in self.queued_caps.items():
-                if len(contacts) == 0:
-                    continue
-
-                friend_dh_pk = None
-                # If the buffer is for the public 'reader':
-                if friend == PUBLIC_READER_LABEL:
-                    friend_dh_pk = PUBLIC_READER_PARAMS.dh.pk
-
-                # Otherwise, try to find the DH key in views.
-                # NOTE: This may update self.queued_views
-                else:
-                    view = self.get_latest_view(friend)
-                    if view is not None:
-                        friend_dh_pk = view.params.dh.pk
-
-                if friend_dh_pk is not None:
-                    self.state.grant_access(friend_dh_pk, contacts)
-                    if friend in self.committed_caps:
-                        self.committed_caps[friend].update(contacts)
-                    else:
-                        self.committed_caps[friend] = set(contacts)
-                    added_caps.append(friend)
+                self.get_latest_view(friend)
+                for contact in contacts:
+                    self.get_latest_view(contact)
 
             # Add the latest own encryption key.
             if self.queued_identity_info is not None:
@@ -405,20 +464,52 @@ class Agent(object):
                 if claim is not None:
                     self.state[friend] = claim
 
+            # Get capabilities in the capability buffer into the claimchain
+            # state, for those subjects whose keys are known.
+            for friend, contacts in self.queued_caps.items():
+                if len(contacts) == 0:
+                    continue
+
+                friend_dh_pk = None
+                # If the buffer is for the public 'reader':
+                if friend == PUBLIC_READER_LABEL:
+                    friend_dh_pk = PUBLIC_READER_PARAMS.dh.pk
+
+                # Otherwise, try to find the DH key in views.
+                else:
+                    view = self.get_latest_view(friend, save=False)
+                    if view is not None:
+                        friend_dh_pk = view.params.dh.pk
+
+                if friend_dh_pk is not None:
+                    self.state.grant_access(friend_dh_pk, contacts)
+                    if friend in self.committed_caps:
+                        self.committed_caps[friend].update(contacts)
+                    else:
+                        self.committed_caps[friend] = set(contacts)
+
+                else:
+                    # This should not happen
+                    raise warnings.warn('Cap reader DH key not known at the '
+                                        'time of committing.')
+
             # Commit state
             head = self.state.commit(target_chain=self.chain,
-                    tree_store=self.tree_store)
+                                     tree_store=self.tree_store)
 
             # Flush the view and caps buffers and update current state
             for friend, view in self.queued_views.items():
                 self.committed_views[friend] = view
+
+            logger.debug('Committed caps: %s', self.committed_caps)
+            logger.debug('Committed views: %s', self.committed_views)
             self.queued_views.clear()
-            for subject in added_caps:
-                del self.queued_caps[subject]
+            self.queued_caps.clear()
 
     def update_key(self):
         """
         Force update of the encryption key, and the chain
         """
+        logger.info('%s / key update', self.email)
         self.queued_identity_info = Agent.generate_public_key()
         self.update_chain()
