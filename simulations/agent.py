@@ -35,10 +35,10 @@ def immediate_chain_update_policy(agent, recipients):
     # NOTE: This assumes that claims contain heads
 
     # * Update chain if any public cap needs to be updated
-    if len(agent.queued_caps[PUBLIC_READER_LABEL]) > 0:
+    if agent.queued_caps.get(PUBLIC_READER_LABEL):
         return True
 
-    public_contacts = agent.committed_caps[PUBLIC_READER_LABEL]
+    public_contacts = agent.committed_caps.get(PUBLIC_READER_LABEL) or set()
 
     # * Update chain if any relevant private cap needs to be updated
     for recipient in recipients:
@@ -47,7 +47,8 @@ def immediate_chain_update_policy(agent, recipients):
 
     private_contacts = set()
     for recipient in recipients:
-        private_contacts.update(agent.committed_caps[recipient])
+        recipient_caps = agent.committed_caps.get(recipient) or set()
+        private_contacts.update(recipient_caps)
 
     # * Update chain if any contact that is to be shared in this
     # message was updated.
@@ -87,11 +88,12 @@ class Agent(object):
         self.nb_sent_emails = 0
 
         # Committed views and capabilities
-        self.committed_caps = defaultdict(set)
+        self.committed_caps = {}
         self.committed_views = {}
         # ...and the ones queued to be committed.
         self.queued_identity_info = None
-        self.queued_caps = defaultdict(set)
+        self.queued_caps = {}
+        self.expected_caps = {}
         self.queued_views = {}
 
         # Known beliefs of other people about other people.
@@ -220,7 +222,8 @@ class Agent(object):
             local_object_keys.update(self.chain_store.keys())
 
             # Add evidence for public claims.
-            public_contacts = self.committed_caps[PUBLIC_READER_LABEL]
+            public_contacts = self.committed_caps.get(PUBLIC_READER_LABEL) \
+                              or set()
             for contact in public_contacts:
                 object_keys = self.state.compute_evidence_keys(
                         PUBLIC_READER_PARAMS.dh.pk, contact)
@@ -232,7 +235,8 @@ class Agent(object):
             # Compute evidence that needs to be sent to all recipients.
             for recipient in recipients:
                 # NOTE: This assumes that claims contain heads
-                accessible_contacts = self.committed_caps[recipient]
+                accessible_contacts = self.committed_caps.get(recipient) \
+                                      or set()
                 for contact in accessible_contacts:
                     recipient_view = self.committed_views.get(recipient)
                     if recipient_view is None:
@@ -385,7 +389,10 @@ class Agent(object):
 
                 if friend_dh_pk is not None:
                     self.state.grant_access(friend_dh_pk, contacts)
-                    self.committed_caps[friend].update(contacts)
+                    if friend in self.committed_caps:
+                        self.committed_caps[friend].update(contacts)
+                    else:
+                        self.committed_caps[friend] = set(contacts)
                     added_caps.append(friend)
 
             # Add the latest own encryption key.
