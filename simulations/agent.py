@@ -6,6 +6,7 @@ import itertools
 
 from collections import defaultdict
 
+from attr import attrs, attrib
 from hippiehug import Chain
 from claimchain import State, View, LocalParams
 from claimchain.utils import ObjectStore
@@ -19,16 +20,6 @@ from .utils import SimulationParams
 PUBLIC_READER_PARAMS = LocalParams.generate()
 
 PUBLIC_READER_LABEL = 'public'
-
-
-class GlobalState(object):
-    def __init__(self, context):
-        self.context = context
-        self.agents = {}
-        self.sent_email_count = 0
-        self.encrypted_email_count = 0
-        for user in self.context.senders:
-            self.agents[user] = Agent(user)
 
 
 def latest_timestamp_resolution_policy(views):
@@ -63,6 +54,13 @@ def immediate_chain_update_policy(agent, recipients):
     relevant_contacts = private_contacts | public_contacts
     if len(relevant_contacts.intersection(agent.queued_views)) > 0:
         return True
+
+
+@attrs
+class MessageMetadata(object):
+    head = attrib()
+    public_contacts = attrib()
+    store = attrib()
 
 
 class Agent(object):
@@ -102,7 +100,7 @@ class Agent(object):
         self.contacts_by_sender = defaultdict(set)
 
         # Objects that were sent to each recipient.
-        self.sent_objects_by_recipient = {}
+        self.sent_object_keys_to_recipients = {}
         # Objects that were received from other people.
         self.global_store = ObjectStore()
 
@@ -129,7 +127,7 @@ class Agent(object):
         else:
             self.queued_caps[reader].update(contacts)
 
-    def get_latest_view(self, contact):
+    def get_latest_view(self, contact, save=True):
         """
         Resolve latest view for contact through social policy
 
@@ -137,6 +135,9 @@ class Agent(object):
         and runs social validation policy to decide on the best candidate.
 
         As a side effect, puts the resolved view in the queue.
+
+        :param contact: Contact identifier
+        :param save: Whether to save the resolved view to the queue
         """
         policy = self.conflict_resolution_policy
 
@@ -166,9 +167,10 @@ class Agent(object):
         self.queued_views[contact] = view
 
         # Remove from queue if resolved view is the same as committed.
-        committed_view = self.committed_views.get(contact)
-        if view == committed_view:
-            del self.queued_views[contact]
+        if save:
+            committed_view = self.committed_views.get(contact)
+            if view == committed_view:
+                del self.queued_views[contact]
 
         return view
 
@@ -179,7 +181,7 @@ class Agent(object):
         NOTE: May update the chain if required by the update policy
 
         :param recipients: An iterable of recipient identifiers (emails)
-        :returns: Chain head, public contacts, and object store part
+        :returns: ``MessageMetadata`` object
         """
         if len(recipients) == 0:
             return
@@ -251,12 +253,13 @@ class Agent(object):
             relevant_keys = local_object_keys | global_object_keys
             object_keys_to_send = set()
             for recipient in recipients:
-                if recipient not in self.sent_objects_by_recipient:
-                    self.sent_objects_by_recipient[recipient] = relevant_keys
+                if recipient not in self.sent_object_keys_to_recipients:
+                    self.sent_object_keys_to_recipients[recipient] = \
+                            relevant_keys
                     object_keys_to_send = relevant_keys
                 else:
                     object_keys_for_recipient = relevant_keys.difference(
-                            self.sent_objects_by_recipient[recipient])
+                            self.sent_object_keys_to_recipients[recipient])
                     object_keys_to_send |= object_keys_for_recipient
 
             # Gather the objects by keys.
@@ -272,7 +275,8 @@ class Agent(object):
                     message_store[key] = value
 
             self.nb_sent_emails += 1
-            return self.chain.head, public_contacts, message_store
+            return MessageMetadata(self.chain.head, public_contacts,
+                                   message_store)
 
     def get_accessible_contacts(self, sender, message_metadata,
                                 other_recipients=None):
@@ -281,9 +285,8 @@ class Agent(object):
         """
         # NOTE: Assumes other people's introduction policy is the same
         contacts = self.contacts_by_sender[sender]
-        sender_head, public_contacts, message_store = message_metadata
         other_recipients = set(other_recipients) - {sender, self.email}
-        for recipient in other_recipients | public_contacts:
+        for recipient in other_recipients | message_metadata.public_contacts:
             contacts.add(recipient)
         return contacts
 
@@ -297,22 +300,25 @@ class Agent(object):
         :param other_recipients: Identifiers of other known recipients of the
                                  message
         """
-        sender_head, public_contacts, message_store = message_metadata
         if other_recipients is None:
             other_recipients = set()
 
         with self.params.as_default():
             # Merge stores temporarily.
             merged_store = ObjectStore(self.global_store)
-            for key, obj in message_store.items():
+            for key, obj in message_metadata.store.items():
                 merged_store[key] = obj
 
+            sender_head = message_metadata.head
             sender_latest_block = merged_store[sender_head]
-            self.global_store[sender_head] = sender_latest_block
+            self.global_store[sender_head] = \
+                    sender_latest_block
             self.queued_views[sender] = View(
-                    Chain(self.global_store, root_hash=sender_head))
+                    Chain(self.global_store,
+                          root_hash=sender_head))
             full_sender_view = View(
-                    Chain(merged_store, root_hash=sender_head))
+                    Chain(merged_store,
+                          root_hash=sender_head))
 
             # Add relevant objects from the message store.
             contacts = self.get_accessible_contacts(
@@ -322,12 +328,13 @@ class Agent(object):
                         full_sender_view, contact)
                 if contact_head is None:
                     continue
-                contact_latest_block = message_store.get(contact_head)
+                contact_latest_block = message_metadata.store.get(contact_head)
                 if contact_latest_block is not None:
                     self.global_store[contact_head] = contact_latest_block
 
                 # NOTE: Assumes people send only contacts' latest blocks
-                contact_chain = Chain(self.global_store, root_hash=contact_head)
+                contact_chain = Chain(self.global_store,
+                                      root_hash=contact_head)
                 self.global_views[sender][contact] = View(contact_chain)
 
             # Recompute the latest beliefs.
