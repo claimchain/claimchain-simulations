@@ -21,7 +21,7 @@ from scripts.parse_enron import Message
 @attrs
 class SimulationParams(object):
     chain_update_buffer_size = attrib(default=5)
-    key_update_every_nb_sent_emails = attrib(default=50)
+    key_update_every_nb_sent_emails = attrib(default=None)
 
 
 @attrs
@@ -214,7 +214,10 @@ def simulate_autocrypt(context):
     encryption_status_data = pd.Series()
 
     for index, email in enumerate(context.log):
-        recipients = email.To | email.Cc | email.Bcc - {email.From}
+        recipients = (email.To | email.Cc | email.Bcc) - {email.From}
+        if len(recipients) == 0:
+            continue
+
         for recipient in recipients:
             if (email.From, recipient) not in global_state.local_views:
                 global_state.create_local_view(email.From, recipient)
@@ -263,7 +266,10 @@ def simulate_claimchain_no_privacy(context):
     encryption_status_data = pd.Series()
 
     for index, email in enumerate(context.log):
-        recipients = email.To | email.Cc | email.Bcc - {email.From}
+        recipients = (email.To | email.Cc | email.Bcc) - {email.From}
+        if len(recipients) == 0:
+            continue
+
         for recipient in recipients:
             if (email.From, recipient) not in global_state.local_views:
                 global_state.create_local_view(email.From, recipient)
@@ -344,8 +350,11 @@ def simulate_claimchain_with_privacy(context):
     encryption_status_data = pd.Series()
 
     for index, email in enumerate(context.log):
-        recipients = email.To | email.Cc | email.Bcc - {email.From}
-        public_recipients = email.To | email.Cc - {email.From}
+        recipients = (email.To | email.Cc | email.Bcc) - {email.From}
+        public_recipients = (email.To | email.Cc) - {email.From}
+        if len(recipients) == 0:
+            continue
+
         for recipient in recipients:
             if (email.From, recipient) not in global_state.local_views:
                 global_state.create_local_view(email.From, recipient)

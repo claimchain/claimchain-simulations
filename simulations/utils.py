@@ -1,6 +1,13 @@
-from attr import attrs, attrib
+"""
+Misc utility functions and classes for simulations
+"""
+
 from enum import Enum
+
+from attr import attrs, attrib
+
 from defaultcontext import with_default_context
+from claimchain.utils.wrappers import serialize_object
 
 
 class EncStatus(Enum):
@@ -9,16 +16,20 @@ class EncStatus(Enum):
     encrypted = 2
 
 
-@with_default_context(use_empty_init=True)
-@attrs
-class SimulationParams(object):
-    # Max buffer size for user after which she updates her chain.
-    # If None, chains are never updated
-    chain_update_buffer_size = attrib(default=5)
+class LinkStatus(Enum):
+    greeting = 0   # Initial greeting
+    followup = 1   # Greeting sent, but response not received or learned
+    completed = 2
 
-    # Max number of sent emails by a user after which she updates her key.
-    # If None, keys are never updated
-    key_update_every_nb_sent_emails = attrib(default=None)
+
+def serialize_store(store):
+    keys = list(store.keys())
+    values = [serialize_object(obj) for obj in store.values()]
+    return (keys, values)
+
+
+def serialize_caches(caches):
+    return list(caches)
 
 
 class Context(object):

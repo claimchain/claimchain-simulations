@@ -1,49 +1,102 @@
+import sys
+import logging
+from collections import defaultdict
+
 import pandas as pd
+
+from attr import asdict
 from msgpack import packb
 
-from claimchain.utils.wrappers import serialize_object
-
-from .utils import EncStatus
-from .agent import Agent, SimulationParams, GlobalState
+from .agent import Agent, AgentSettings
+from .utils import *
 
 
-def serialize_store(store):
-    keys = list(store.keys())
-    values = [serialize_object(obj) for obj in store.values()]
-    return packb((keys, values))
+logger = logging.getLogger(__name__)
 
 
-def serialize_caches(caches):
-    return packb(list(caches))
+class GlobalState(object):
+    """
+    Current state of simulation at a point in time
+    """
+    def __init__(self, context):
+        self.context = context
+        self.agents = {}
+        self.sent_email_count = 0
+        self.encrypted_email_count = 0
+        for user in self.context.senders:
+            self.agents[user] = Agent(user)
+        self.recipients_by_sender = defaultdict(set)
 
 
-def get_encryption_status(global_state, user_email, recipient_emails):
-    if user_email not in global_state.context.userset:
-        return None
+class SimulationReports(object):
+    def __init__(self, context):
+        self.key_propagation_data = \
+                pd.DataFrame(columns=('Updated', 'Stale'))
+        self.head_propagation_data = \
+                pd.DataFrame(columns=('Updated', 'Stale'))
 
-    recipient_emails = recipient_emails.intersection(
-            global_state.context.userset)
+        self.encryption_status_data = pd.Series()
+        self.link_status_data = pd.DataFrame(
+                columns=[opt.name for opt in list(LinkStatus)])
+
+        self.cache_size_data = \
+                {sender: pd.Series() for sender in context.senders}
+        self.local_store_size_data = \
+                {sender: pd.Series() for sender in context.senders}
+        self.bandwidth_data = \
+                {sender: pd.Series() for sender in context.senders}
+
+
+def get_encryption_status(global_state, sender_email, recipient_emails,
+                          mode='global'):
+    """
+    Determine encryption status
+
+    :param global_state: ``GlobalState`` object
+    :param sender_email: Sender's email
+    :param recipient_emails: Iterable of recipient emails
+    :param mode: One of ['userset_only', 'userset_to_global', 'global'].
+                 * `userset_only`: Only emails from userset senders to
+                    userset receivers are considered
+                 * `userset_to_global`: Only emails from userset senders are
+                    considered.
+                 * `global`: All emails are considered.
+    """
+    if mode not in ['userset_only', 'userset_to_global', 'global']:
+        raise ValueError('Incorrect mode')
+
+    if mode in ['userset_only', 'userset_to_global']:
+        if sender_email not in global_state.context.userset:
+            return None
+
+    if mode == 'userset':
+        userset_recipient_emails = recipient_emails.intersection(
+                global_state.context.userset)
+        if userset_recipient_emails != recipient_emails:
+            return None
+
     if not recipient_emails:
         return None
 
     global_state.sent_email_count += 1
 
     stale = False
-    user = global_state.agents[user_email]
+    sender = global_state.agents[sender_email]
     for recipient_email in recipient_emails:
-        view = user.views.get(recipient_email)
+        view = sender.committed_views.get(recipient_email)
 
         # If sender does not know of a recipient's enc key, the email is
         # sent in clear text
         if view is None:
             return EncStatus.plaintext
 
-        view_enc_key = view.enc_key
+        view_enc_key = view.payload.metadata.identity_info
+        true_enc_key = global_state.agents[recipient_email].state.identity_info
+
         if view_enc_key is None:
             return EncStatus.plaintext
-
         elif recipient_email in global_state.context.senders and \
-             view_enc_key != global_state.agents[recipient_email].enc_key:
+             view_enc_key != true_enc_key:
             stale = True
 
     if not stale:
@@ -53,135 +106,91 @@ def get_encryption_status(global_state, user_email, recipient_emails):
         return EncStatus.stale
 
 
-def simulate_public_claimchain(context):
-    print("Simulating the ClaimChain with public claims:")
-    print(SimulationParams.get_default())
+def get_link_status(global_state, sender_email, recipient_emails):
+    link_statuses = {}
+    link_status_summary = {opt.name: 0 for opt in list(LinkStatus)}
+
+    sender = global_state.agents[sender_email]
+    past_recipients = global_state.recipients_by_sender[sender_email]
+
+    for recipient_email in recipient_emails:
+        recipient_view = sender.get_latest_view(recipient_email, save=False)
+
+        if recipient_view is None and recipient_email not in past_recipients:
+            link_statuses[recipient_email] = LinkStatus.greeting
+            link_status_summary[LinkStatus.greeting.name] += 1
+
+        elif recipient_view is None and recipient_email in past_recipients:
+            link_statuses[recipient_email] = LinkStatus.followup
+            link_status_summary[LinkStatus.followup.name] += 1
+
+        elif recipient_view is not None:
+            link_statuses[recipient_email] = LinkStatus.completed
+            link_status_summary[LinkStatus.completed.name] += 1
+
+    return link_status_summary, link_statuses
+
+
+def simulate_claimchain(context):
+    logger.info('Simulating ClaimChain')
+    logger.info('Common agent settings: %s', AgentSettings.get_default())
 
     global_state = GlobalState(context)
-
-    key_propagation_data = pd.DataFrame(columns=('Updated', 'Stale'))
-    head_propagation_data = pd.DataFrame(columns=('Updated', 'Stale'))
-    encryption_status_data = pd.Series()
-
-    sender_cache_data = {sender: pd.Series() for sender in context.senders}
-    recipient_store_data = {sender: pd.Series() for sender in context.senders}
-    bandwidth_data = {sender: pd.Series() for sender in context.senders}
+    reports = SimulationReports(context)
 
     for index, email in enumerate(context.log):
-        recipient_emails = email.To | email.Cc | email.Bcc - {email.From}
+        recipient_emails = (email.To | email.Cc | email.Bcc) - {email.From}
         if len(recipient_emails) == 0:
             continue
 
-        user = global_state.agents[email.From]
-
-        user.maybe_update_key()
-        user.update_chain()
+        sender = global_state.agents[email.From]
 
         # Send the email
-        head, email_store = user.send_message(recipient_emails)
+        message_metadata = sender.send_message(recipient_emails)
 
         # Check if the email is plaintext, encrypted, or stale
         enc_status = get_encryption_status(
                 global_state, email.From, recipient_emails)
-        encryption_status_data.loc[index] = enc_status
-
-        # Record bandwidth and cache size
-        if email.From in context.userset:
-            packed_message = packb((head, serialize_store(email_store)))
-            bandwidth_data[email.From].loc[index] = len(packed_message)
-
-            packed_sender_cache = serialize_caches(user.sent_email_store_cache)
-            sender_cache_data[email.From].loc[index] = len(packed_sender_cache)
-
-        # Update states of recipients
-        for recipient_email in recipient_emails.intersection(context.senders):
-            recipient = global_state.agents[recipient_email]
-            recipient.receive_message(email.From, head, email_store)
-
-            # Allow public to access claims about recipients
-            recipients.add_expected_reader('public', email.From)
-
-            # Record receiver store size
-            packed_recipient_stores = \
-                    packb([serialize_store(s) for s in recipient.stores.values()])
-            recipient_store_data[recipient_email].loc[index] = \
-                    len(packed_recipient_stores)
-
-        if index % 1000 == 0:
-            print(index)
-
-    print('Emails: Sent: %d, Encrypted: %d' % (
-        global_state.sent_email_count,
-        global_state.encrypted_email_count))
-
-    return encryption_status_data, sender_cache_data, recipient_store_data, \
-           bandwidth_data
-
-
-def simulate_private_claimchain(context):
-    print("Simulating the ClaimChain with public claims:")
-    print(SimulationParams.get_default())
-
-    global_state = GlobalState(context)
-
-    key_propagation_data = pd.DataFrame(columns=('Updated', 'Stale'))
-    head_propagation_data = pd.DataFrame(columns=('Updated', 'Stale'))
-    encryption_status_data = pd.Series()
-
-    sender_cache_data = {sender: pd.Series() for sender in context.senders}
-    recipient_store_data = {sender: pd.Series() for sender in context.senders}
-    bandwidth_data = {sender: pd.Series() for sender in context.senders}
-
-    for index, email in enumerate(context.log):
-        public_recipient_emails = email.To | email.Cc
-        recipient_emails = email.To | email.Cc | email.Bcc - {email.From}
-        if len(recipient_emails) == 0:
-            continue
-
-        user = global_state.agents[email.From]
-
-        # Allow recipients to access claims about other public recipients
-        for recipient_email in recipient_emails:
-            others = public_recipient_emails - {recipient_email}
-            user.add_expected_reader(recipient_email, others)
-
-        user.maybe_update_key()
-        user.maybe_update_chain()
-
-        # Send the email
-        head, accessible_contacts, email_store = user.send_message(
-                recipient_emails)
-
-        # Check if the email is plaintext, encrypted, or stale
-        enc_status = get_encryption_status(
+        link_status, _ = get_link_status(
                 global_state, email.From, recipient_emails)
-        encryption_status_data.loc[index] = enc_status
+        reports.encryption_status_data.loc[index] = enc_status
+        reports.link_status_data.loc[index] = link_status
 
         # Record bandwidth and cache size
         if email.From in context.userset:
-            packed_message = packb((head, serialize_store(email_store)))
-            bandwidth_data[email.From].loc[index] = len(packed_message)
+            packed_message_metadata = packb([
+                    message_metadata.head,
+                    list(message_metadata.public_contacts),
+                    serialize_store(message_metadata.store)])
+            reports.bandwidth_data[email.From].loc[index] = \
+                   len(packed_message_metadata)
 
-            packed_sender_cache = serialize_caches(user.sent_email_store_cache)
-            sender_cache_data[email.From].loc[index] = len(packed_sender_cache)
+            packed_sender_cache = packb(serialize_caches(
+                    sender.sent_object_keys_to_recipients))
+            reports.cache_size_data[email.From].loc[index] = \
+                   len(packed_sender_cache)
 
         # Update states of recipients
         for recipient_email in recipient_emails.intersection(context.senders):
             recipient = global_state.agents[recipient_email]
-            recipient.receive_message(email.From, head, email_store)
+            recipient.receive_message(email.From, message_metadata,
+                    recipient_emails - {recipient_email})
 
             # Record receiver store size
             packed_recipient_stores = \
-                    packb([serialize_store(s) for s in recipient.stores.values()])
-            recipient_store_data[recipient_email].loc[index] = \
+                    packb([serialize_store(recipient.global_store),
+                           serialize_store(recipient.chain_store),
+                           serialize_store(recipient.tree_store)])
+            reports.local_store_size_data[recipient_email].loc[index] = \
                     len(packed_recipient_stores)
 
+        global_state.recipients_by_sender[email.From] |= recipient_emails
+
         if index % 1000 == 0:
-            print(index)
+            logging.debug('Email #%d', index)
 
-    print('Emails: Sent: %d, Encrypted: %d' % (
-        global_state.sent_email_count,
-        global_state.encrypted_email_count))
+    logging.info('Emails: Sent: %d, Encrypted: %d',
+            global_state.sent_email_count,
+            global_state.encrypted_email_count)
 
-    return encryption_status_data, sender_cache_data, recipient_store_data, \
-           bandwidth_data
+    return reports
