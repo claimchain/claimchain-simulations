@@ -61,17 +61,20 @@ def immediate_chain_update_policy(agent, recipients):
 
 
 def implicit_cc_introduction_policy(agent, recipient_emails):
-    logger.info('%s / intro', agent.email)
     for recipient_email in recipient_emails - {agent.email}:
         # NOTE: Friends should be able to see what my belief about them is,
         # so no need to exclude recipient_email from recipient_emails here.
         agent.add_expected_reader(recipient_email, recipient_emails)
 
 
-
-def public_contacts_policy(agent, recipients_emails):
-    agent.add_expected_reader(PUBLIC_READER_LABEL,
-            agent.committed_views.keys())
+def public_contacts_policy(agent, recipient_emails):
+    new_public_contacts = set() \
+                        | agent.committed_views.keys() \
+                        | agent.queued_views.keys()    \
+                        | agent.expected_views.keys()
+    for contact in new_public_contacts:
+        agent.queued_views[contact] = agent.get_latest_view(contact)
+    agent.queued_caps[PUBLIC_READER_LABEL] |= new_public_contacts
 
 
 @attrs
@@ -110,10 +113,12 @@ class Agent(object):
         self.committed_views = {}
         # ...and the ones queued to be committed.
         self.queued_identity_info = None
-        self.queued_caps = {}
+        self.queued_caps = defaultdict(set)
         self.queued_views = {}
-        # Capabilities for unknown yet readers and of unknown yet contacts
+        # Capabilities for unknown yet contacts
+        # and views that have no readers.
         self.expected_caps = defaultdict(set)
+        self.expected_views = defaultdict(set)
 
         # Known beliefs of other people about other people.
         self.global_views = defaultdict(dict)
@@ -160,26 +165,16 @@ class Agent(object):
             warnings.warn("Contacts is a string type, an iterable of "
                           "identifiers is expected.")
 
-        logger.info('%s / cap / %s: %s', self.email,
+        if not contacts:
+            return
+
+        logger.debug('%s / expected cap / %s: %s', self.email,
                     reader, contacts)
 
-        if reader in self.committed_caps:
-            for contact in contacts:
-                if contact in self.committed_caps[reader]:
-                    continue
-                if contact in self.queued_caps[reader]:
-                    continue
-                self.expected_caps[reader].add(contact)
-        else:
-            self.expected_caps[reader].update(contacts)
+        self.expected_caps[reader].update(contacts)
 
-        self._update_cap_buffer()
-
-        logger.debug('Expected_caps: %s', self.expected_caps)
-        logger.debug('Queued_caps: %s', self.queued_caps)
-
-    def _update_cap_buffer(self):
-        buffered_contacts_by_reader = defaultdict(set)
+    def _update_buffer(self):
+        accepted_caps_by_reader = defaultdict(set)
 
         for reader, contacts in self.expected_caps.items():
             reader_view = self.get_latest_view(reader)
@@ -189,14 +184,24 @@ class Agent(object):
             for contact in contacts:
                 contact_view = self.get_latest_view(contact)
                 if contact_view is not None:
-                    if reader not in self.queued_caps:
-                        self.queued_caps[reader] = {contact}
-                    else:
-                        self.queued_caps[reader].add(contact)
-                    buffered_contacts_by_reader[reader].add(contact)
+                    # Copy expected cap into queue.
+                    self.queued_caps[reader].add(contact)
+
+                    # Move expected view into queue if needed.
+                    if contact in self.expected_views:
+                        self.queued_views[contact] = contact_view
+                        del self.expected_views[contact]
+
+                    accepted_caps_by_reader[reader].add(contact)
+
+            # Move reader view into queue if needed.
+            if accepted_caps_by_reader[reader]:
+                if reader in self.expected_views:
+                    self.queued_views[reader] = reader_view
+                    del self.expected_views[reader]
 
         # Clean empty expected_caps entries.
-        for reader, contacts in buffered_contacts_by_reader.items():
+        for reader, contacts in accepted_caps_by_reader.items():
             self.expected_caps[reader] -= contacts
             if not self.expected_caps[reader]:
                 del self.expected_caps[reader]
@@ -222,10 +227,13 @@ class Agent(object):
             candidate_views.add(self.committed_views[contact])
         if contact in self.queued_views:
             candidate_views.add(self.queued_views[contact])
+        if contact in self.expected_views:
+            candidate_views.add(self.expected_views[contact])
 
         # Get a view of contact in question from every friend.
         current_friends = set(self.committed_views.keys()) \
-                        | set(self.queued_views.keys())
+                        | set(self.queued_views.keys())    \
+                        | set(self.expected_views.keys())
         for friend in current_friends - {contact}:
             candidate_view = self.global_views[friend].get(contact)
             if candidate_view is not None:
@@ -238,13 +246,13 @@ class Agent(object):
         # Otherwise, resolve conflicts using a policy
         view = policy(self, candidate_views)
         # ...and add the resolved view to the queue.
-        self.queued_views[contact] = view
+        self.expected_views[contact] = view
 
         # Remove from queue if resolved view is the same as committed.
         if save:
             committed_view = self.committed_views.get(contact)
             if view == committed_view:
-                del self.queued_views[contact]
+                del self.expected_views[contact]
 
         return view
 
@@ -257,7 +265,7 @@ class Agent(object):
         :param recipients: An iterable of recipient identifiers (emails)
         :returns: ``MessageMetadata`` object
         """
-        logger.info('%s -> %s', self.email, recipients)
+        logger.debug('%s -> %s', self.email, recipients)
 
         if len(recipients) == 0:
             return
@@ -272,8 +280,11 @@ class Agent(object):
             # Grant accesses according to introduction policy.
             intro_policy(self, recipients)
 
-            # Decide whether to update the encryption key
-            # TODO: Make key update decision a policy
+            # Move expected views and caps into queue
+            self._update_buffer()
+
+            # Decide whether to update the encryption key.
+            # TODO: Make key update decision a policy.
             nb_sent_emails_thresh = AgentSettings.get_default() \
                     .key_update_every_nb_sent_emails
 
@@ -282,7 +293,7 @@ class Agent(object):
                 self.update_key()
 
             else:
-                # Decide whether to update the chain
+                # Decide whether to update the chain.
                 update_policy = AgentSettings.get_default().chain_update_policy
                 if update_policy(self, recipients):
                     self.update_chain()
@@ -377,7 +388,7 @@ class Agent(object):
         :param other_recipients: Identifiers of other known recipients of the
                                  message
         """
-        logger.info('%s <- %s', self.email, sender)
+        logger.debug('%s <- %s', self.email, sender)
         if other_recipients is None:
             other_recipients = set()
 
@@ -391,17 +402,18 @@ class Agent(object):
             sender_latest_block = merged_store[sender_head]
             self.global_store[sender_head] = \
                     sender_latest_block
-            self.queued_views[sender] = View(
+            self.expected_views[sender] = View(
                     Chain(self.global_store,
                           root_hash=sender_head))
             full_sender_view = View(
                     Chain(merged_store,
                           root_hash=sender_head))
+            logger.debug('%s / expected view / %s', self.email, sender)
 
             # Add relevant objects from the message store.
             contacts = self.get_accessible_contacts(
                     sender, message_metadata, other_recipients)
-            for contact in contacts:
+            for contact in contacts - {self.email}:
                 contact_head = self.get_contact_head_from_view(
                         full_sender_view, contact)
                 if contact_head is None:
@@ -415,13 +427,11 @@ class Agent(object):
                                       root_hash=contact_head)
                 self.global_views[sender][contact] = View(contact_chain)
 
+            # TODO: Needs a special check for contact==self.email.
+
             # Recompute the latest beliefs.
             for contact in {sender} | contacts:
                 self.get_latest_view(contact)
-
-            # TODO: This calls get_latest_view inside, so it can be called
-            # twice per contact. Room for optimization here.
-            self._update_cap_buffer()
 
     def get_contact_head_from_view(self, view, contact):
         """
@@ -445,7 +455,7 @@ class Agent(object):
 
         Commits views and capabilities in the queues to the chain
         """
-        logger.info('%s / chain update', self.email)
+        logger.debug('%s / chain update', self.email)
 
         with self.params.as_default():
             # Refresh views of all friends and contacts in queued capabilities.
@@ -463,8 +473,9 @@ class Agent(object):
                 claim = view.chain.head
                 if claim is not None:
                     self.state[friend] = claim
+                    self.committed_views[friend] = view
 
-            # Get capabilities in the capability buffer into the claimchain
+            # Get capabilities in the capability queue into the claimchain
             # state, for those subjects whose keys are known.
             for friend, contacts in self.queued_caps.items():
                 if len(contacts) == 0:
@@ -497,12 +508,7 @@ class Agent(object):
             head = self.state.commit(target_chain=self.chain,
                                      tree_store=self.tree_store)
 
-            # Flush the view and caps buffers and update current state
-            for friend, view in self.queued_views.items():
-                self.committed_views[friend] = view
-
-            logger.debug('Committed caps: %s', self.committed_caps)
-            logger.debug('Committed views: %s', self.committed_views)
+            # Flush the view and caps queues
             self.queued_views.clear()
             self.queued_caps.clear()
 
@@ -510,6 +516,9 @@ class Agent(object):
         """
         Force update of the encryption key, and the chain
         """
-        logger.info('%s / key update', self.email)
+        logger.debug('%s / key update', self.email)
         self.queued_identity_info = Agent.generate_public_key()
         self.update_chain()
+
+    def __repr__(self):
+        return 'Agent("%s")' % self.email
