@@ -13,8 +13,15 @@ from collections import defaultdict
 from attr import Factory, attrs, attrib, evolve as clone
 from defaultcontext import with_default_context
 
-from .utils import SimulationParams, EncStatus
+from .utils import EncStatus
 from scripts.parse_enron import Message
+
+
+@with_default_context
+@attrs
+class SimulationParams(object):
+    chain_update_buffer_size = attrib(default=5)
+    key_update_every_nb_sent_emails = attrib(default=50)
 
 
 @attrs

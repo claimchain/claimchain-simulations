@@ -2,7 +2,7 @@ import pytest
 import pickle
 
 from scripts.parse_enron import Message
-from simulations.utils import Context, SimulationParams
+from simulations.utils import Context
 
 import __main__
 __main__.Message = Message
@@ -22,12 +22,6 @@ def log():
 def social_graph():
     with open(parsed_logs_folder + "social.pkl", "rb") as f:
         yield pickle.load(f)
-
-
-@pytest.fixture
-def default_params():
-    with SimulationParams().as_default() as params:
-        yield params
 
 
 @pytest.fixture

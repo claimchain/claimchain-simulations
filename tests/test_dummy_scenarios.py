@@ -16,6 +16,11 @@ def context(log, social_graph):
     return Context(log, social_graph)
 
 
+@pytest.fixture
+def default_params():
+    return SimulationParams()
+
+
 def test_create_global_state(context, default_params):
     with default_params.as_default():
         state = create_global_state(context)
