@@ -39,12 +39,11 @@ class SimulationReports(object):
         self.link_status_data = pd.DataFrame(
                 columns=[opt.name for opt in list(LinkStatus)])
 
-        self.cache_size_data = \
-                {sender: pd.Series() for sender in context.senders}
-        self.local_store_size_data = \
-                {sender: pd.Series() for sender in context.senders}
-        self.bandwidth_data = \
-                {sender: pd.Series() for sender in context.senders}
+        self.cache_size_data = defaultdict(pd.Series)
+        self.local_store_size_data = defaultdict(pd.Series)
+        self.gossip_store_size_data = defaultdict(pd.Series)
+        self.outgoing_bandwidth_data = defaultdict(pd.Series)
+        self.incoming_bandwidth_data = defaultdict(pd.Series)
 
 
 def get_encryption_status(global_state, sender_email, recipient_emails,
@@ -157,18 +156,16 @@ def simulate_claimchain(context):
         reports.link_status_data.loc[index] = link_status
 
         # Record bandwidth and cache size
-        if email.From in context.userset:
-            packed_message_metadata = packb([
-                    message_metadata.head,
-                    list(message_metadata.public_contacts),
-                    serialize_store(message_metadata.store)])
-            reports.bandwidth_data[email.From].loc[index] = \
-                   len(packed_message_metadata)
-
-            packed_sender_cache = packb(serialize_caches(
-                    sender.sent_object_keys_to_recipients))
-            reports.cache_size_data[email.From].loc[index] = \
-                   len(packed_sender_cache)
+        packed_message_metadata = packb([
+                message_metadata.head,
+                list(message_metadata.public_contacts),
+                serialize_store(message_metadata.store)])
+        reports.outgoing_bandwidth_data[email.From].loc[index] = \
+               len(packed_message_metadata)
+        packed_sender_cache = packb(serialize_caches(
+                sender.sent_object_keys_to_recipients))
+        reports.cache_size_data[email.From].loc[index] = \
+               len(packed_sender_cache)
 
         # Update states of recipients
         for recipient_email in recipient_emails.intersection(context.senders):
@@ -176,13 +173,21 @@ def simulate_claimchain(context):
             recipient.receive_message(email.From, message_metadata,
                     recipient_emails - {recipient_email})
 
-            # Record receiver store size
-            packed_recipient_stores = \
-                    packb([serialize_store(recipient.global_store),
-                           serialize_store(recipient.chain_store),
+            # Record receiver store sizes
+            packed_recipient_local_store = \
+                    packb([serialize_store(recipient.chain_store),
                            serialize_store(recipient.tree_store)])
             reports.local_store_size_data[recipient_email].loc[index] = \
-                    len(packed_recipient_stores)
+                    len(packed_recipient_local_store)
+
+            packed_recipient_gossip_store = \
+                    packb(serialize_store(recipient.gossip_store))
+            reports.gossip_store_size_data[recipient_email].loc[index] = \
+                    len(packed_recipient_gossip_store)
+
+            # Record incoming bandwidth
+            reports.incoming_bandwidth_data[recipient_email].loc[index] = \
+                    len(packed_message_metadata)
 
         global_state.recipients_by_sender[email.From] |= recipient_emails
 

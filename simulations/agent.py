@@ -128,7 +128,7 @@ class Agent(object):
         # Objects that were sent to each recipient.
         self.sent_object_keys_to_recipients = {}
         # Objects that were received from other people.
-        self.global_store = ObjectStore()
+        self.gossip_store = ObjectStore()
 
         # Generate initial encryption key, and add first block
         # to the chain
@@ -358,7 +358,7 @@ class Agent(object):
                     message_store[key] = value
 
             for key in global_object_keys.intersection(object_keys_to_send):
-                value = self.global_store.get(key)
+                value = self.gossip_store.get(key)
                 if value is not None:
                     message_store[key] = value
 
@@ -394,16 +394,16 @@ class Agent(object):
 
         with self.params.as_default():
             # Merge stores temporarily.
-            merged_store = ObjectStore(self.global_store)
+            merged_store = ObjectStore(self.gossip_store)
             for key, obj in message_metadata.store.items():
                 merged_store[key] = obj
 
             sender_head = message_metadata.head
             sender_latest_block = merged_store[sender_head]
-            self.global_store[sender_head] = \
+            self.gossip_store[sender_head] = \
                     sender_latest_block
             self.expected_views[sender] = View(
-                    Chain(self.global_store,
+                    Chain(self.gossip_store,
                           root_hash=sender_head))
             full_sender_view = View(
                     Chain(merged_store,
@@ -420,10 +420,10 @@ class Agent(object):
                     continue
                 contact_latest_block = message_metadata.store.get(contact_head)
                 if contact_latest_block is not None:
-                    self.global_store[contact_head] = contact_latest_block
+                    self.gossip_store[contact_head] = contact_latest_block
 
                 # NOTE: Assumes people send only contacts' latest blocks
-                contact_chain = Chain(self.global_store,
+                contact_chain = Chain(self.gossip_store,
                                       root_hash=contact_head)
                 self.global_views[sender][contact] = View(contact_chain)
 
