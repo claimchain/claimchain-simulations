@@ -4,3 +4,4 @@ jupyter
 matplotlib
 pandas
 seaborn
+attr
