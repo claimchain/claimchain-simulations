@@ -6,6 +6,10 @@ from simulations.scenarios import *
 from simulations.agent import *
 
 
+PUBLIC_NB_PLAINTEXTS = 722
+PRIVATE_NB_PLAINTEXTS = 744
+
+
 @pytest.mark.parametrize('agent_setting', [
     AgentSettings(introduction_policy=public_contacts_policy),
     AgentSettings(introduction_policy=public_contacts_policy,
@@ -20,7 +24,7 @@ def test_public_claimchain(context, agent_setting):
         reports = simulate_claimchain(context)
         enc_stats = reports.encryption_status_data.value_counts()
         logger.info(enc_stats)
-        assert enc_stats[EncStatus.plaintext] == 722
+        assert enc_stats[EncStatus.plaintext] == PUBLIC_NB_PLAINTEXTS
 
 
 @pytest.mark.parametrize('agent_setting', [
@@ -32,6 +36,8 @@ def test_public_claimchain(context, agent_setting):
 def test_private_claimchain(context, agent_setting):
     with agent_setting.as_default():
         reports = simulate_claimchain(context)
+        userset_mask = reports.participants_type_data == \
+                ParticipantsTypes.userset
         enc_stats = reports.encryption_status_data.value_counts()
         logger.info(enc_stats)
-        assert enc_stats[EncStatus.plaintext] == 744
+        assert enc_stats[EncStatus.plaintext] == PRIVATE_NB_PLAINTEXTS

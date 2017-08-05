@@ -1,6 +1,7 @@
 import sys
 import logging
 from collections import defaultdict
+from enum import Enum
 
 import pandas as pd
 
@@ -30,12 +31,8 @@ class GlobalState(object):
 
 class SimulationReports(object):
     def __init__(self, context):
-        self.key_propagation_data = \
-                pd.DataFrame(columns=('Updated', 'Stale'))
-        self.head_propagation_data = \
-                pd.DataFrame(columns=('Updated', 'Stale'))
-
         self.encryption_status_data = pd.Series()
+        self.participants_type_data = pd.Series()
         self.link_status_data = pd.DataFrame(
                 columns=[opt.name for opt in list(LinkStatus)])
 
@@ -44,36 +41,23 @@ class SimulationReports(object):
         self.gossip_store_size_data = defaultdict(pd.Series)
         self.outgoing_bandwidth_data = defaultdict(pd.Series)
         self.incoming_bandwidth_data = defaultdict(pd.Series)
+        self.observed_social_graph_data = defaultdict(pd.Series)
 
 
-def get_encryption_status(global_state, sender_email, recipient_emails,
-                          mode='global'):
+class ParticipantsTypes(Enum):
+    userset = 0
+    userset_to_global = 1
+    other = 2
+
+
+def get_encryption_status(global_state, sender_email, recipient_emails):
     """
     Determine encryption status
 
     :param global_state: ``GlobalState`` object
     :param sender_email: Sender's email
     :param recipient_emails: Iterable of recipient emails
-    :param mode: One of ['userset_only', 'userset_to_global', 'global'].
-                 * `userset_only`: Only emails from userset senders to
-                    userset receivers are considered
-                 * `userset_to_global`: Only emails from userset senders are
-                    considered.
-                 * `global`: All emails are considered.
     """
-    if mode not in ['userset_only', 'userset_to_global', 'global']:
-        raise ValueError('Incorrect mode')
-
-    if mode in ['userset_only', 'userset_to_global']:
-        if sender_email not in global_state.context.userset:
-            return None
-
-    if mode == 'userset':
-        userset_recipient_emails = recipient_emails.intersection(
-                global_state.context.userset)
-        if userset_recipient_emails != recipient_emails:
-            return None
-
     if not recipient_emails:
         return None
 
@@ -103,6 +87,19 @@ def get_encryption_status(global_state, sender_email, recipient_emails,
         return EncStatus.encrypted
     else:
         return EncStatus.stale
+
+
+def get_participants_type(global_state, sender_email, recipient_emails):
+    userset_recipient_emails = recipient_emails.intersection(
+            global_state.context.userset)
+    recipients_in_userset = userset_recipient_emails == recipient_emails
+    sender_in_userset = sender_email in global_state.context.userset
+    if not sender_in_userset:
+        return ParticipantsTypes.other
+    elif recipients_in_userset:
+        return ParticipantsTypes.userset
+    else:
+        return ParticipantsTypes.userset_to_global
 
 
 def get_link_status(global_state, sender_email, recipient_emails):
@@ -152,8 +149,11 @@ def simulate_claimchain(context):
                 global_state, email.From, recipient_emails)
         link_status, _ = get_link_status(
                 global_state, email.From, recipient_emails)
+        participants_type = get_participants_type(
+                global_state, email.From, recipient_emails)
         reports.encryption_status_data.loc[index] = enc_status
         reports.link_status_data.loc[index] = link_status
+        reports.participants_type_data.loc[index] = participants_type
 
         # Record bandwidth and cache size
         packed_message_metadata = packb([
@@ -188,6 +188,15 @@ def simulate_claimchain(context):
             # Record incoming bandwidth
             reports.incoming_bandwidth_data[recipient_email].loc[index] = \
                     len(packed_message_metadata)
+
+            # Record size of reconstructed social graphs
+            observed_nodes = set()
+            for friend, views in recipient.global_views.items():
+                observed_nodes.add(friend)
+                for contact in views:
+                    observed_nodes.add(contact)
+            reports.observed_social_graph_data[recipient_email].loc[index] = \
+                    len(observed_nodes)
 
         global_state.recipients_by_sender[email.From] |= recipient_emails
 
