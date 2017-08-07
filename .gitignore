@@ -1,6 +1,3 @@
-*.pdf
-*.png
-
 venv
 *.pyc
 .cache
