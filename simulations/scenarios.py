@@ -201,7 +201,7 @@ def simulate_claimchain(context):
         global_state.recipients_by_sender[email.From] |= recipient_emails
 
         if index % 1000 == 0:
-            logging.debug('Email #%d', index)
+            logging.info('Email #%d', index)
 
     logging.info('Emails: Sent: %d, Encrypted: %d',
             global_state.sent_email_count,
