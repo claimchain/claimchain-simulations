@@ -1,7 +1,7 @@
-venv
 *.pyc
+venv
 .cache
-__pycache__
 .ipynb_checkpoints
+__pycache__
 
 Enron
