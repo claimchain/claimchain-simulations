@@ -1,16 +1,18 @@
 # ClaimChain simulations
 
-Here be dragons.
-
-These will be cleaned up and fixed eventually.
-
+See main ClaimChain repo [here](https://github.com/gdanezis/claimchain-core).
 
 ## Installation
 
-This is based on python 3. You will need python and the python header
+This is based on Python 3. You will need python and the python header
 files installed. On debian based systems you can achieve this with
 ```
   apt install python3 python3-dev python3-pip
+```
+
+Some of the dependencies require more system packages:
+```
+  apt install libssl-dev python3-matplotlib
 ```
 
 You probably also want virtualenv to isolate your development
@@ -29,26 +31,10 @@ Now you can install the requirements:
   pip install -r requirements.txt
 ```
 
-## Download the Dataset
+## Download and parse the dataset
 
-https://www.cs.cmu.edu/~enron/ provides the Enron email dataset as a
-gzipped tarball.
-
-This package contains a directory called maildir that our scripts expect
-to reside in an Enron subdirectory. This should get you setup:;
-
-```
-  mkdir Enron
-  cd Enron
-  wget https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz
-  tar -xzvf enron_mail_20150507.tar.gz
-```
-
-## Parse the Dataset
-
-```
-python scripts/parse_enron.py
-```
+Just run ``make`` from the project root to download and parse the dataset to
+the _Enron_ directory.
 
 ## Opening the Notebooks
 
