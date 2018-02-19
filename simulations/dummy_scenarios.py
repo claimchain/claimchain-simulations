@@ -1,20 +1,13 @@
-import os
-import base64
-import pickle
-
-import numpy as np
 import pandas as pd
-import hippiehug
-import claimchain
 
-from enum import Enum
 from collections import defaultdict
+
+from datetime import date
 
 from attr import Factory, attrs, attrib, evolve as clone
 from defaultcontext import with_default_context
 
 from .utils import EncStatus
-from scripts.parse_enron import Message
 
 
 @with_default_context
@@ -22,6 +15,7 @@ from scripts.parse_enron import Message
 class SimulationParams(object):
     chain_update_buffer_size = attrib(default=5)
     key_update_every_nb_sent_emails = attrib(default=None)
+    key_update_every_nb_days = attrib(default=None)
 
 
 @attrs
@@ -78,6 +72,7 @@ class GlobalState(object):
     state_by_user              = attrib(default=Factory(dict))
     claim_buffer_by_user       = attrib(default=Factory(lambda: defaultdict(dict)))
     nb_sent_emails_by_user     = attrib(default=Factory(lambda: defaultdict(int)))
+    date_of_last_key_update    = attrib(default=Factory(lambda: defaultdict(lambda: None)))
     sent_email_count           = attrib(default=0)
     encrypted_email_count      = attrib(default=0)
 
@@ -180,12 +175,20 @@ class GlobalState(object):
 
         return False
 
-    def maybe_update_key(self, user, force=False):
+    def maybe_update_key(self, user, mtime, force=False):
         min_nb_sent_emails = SimulationParams.get_default().key_update_every_nb_sent_emails
+        min_nb_days = SimulationParams.get_default().key_update_every_nb_days
+
+        if self.date_of_last_key_update[user] is None:
+            self.date_of_last_key_update[user] = date.fromtimestamp(mtime)
 
         if force or (min_nb_sent_emails is not None and \
-                     self.nb_sent_emails_by_user[user] % min_nb_sent_emails == 0):
+                     self.nb_sent_emails_by_user[user] >= min_nb_sent_emails)\
+                or (min_nb_days is not None and \
+                    (self.date_of_last_key_update[user] - date.fromtimestamp(mtime)).days >= min_nb_days):
             self.state_by_user[user].update_key()
+            self.nb_sent_emails_by_user[user] = 0
+            self.date_of_last_key_update[user] = date.fromtimestamp(mtime)
             self.maybe_update_chain(user, force=True)
             return True
 
@@ -224,7 +227,7 @@ def simulate_autocrypt(context):
             if (email.From, recipient) not in global_state.public_views:
                 global_state.create_public_view(email.From, recipient)
 
-        global_state.maybe_update_key(email.From)
+        global_state.maybe_update_key(email.From, email.mtime)
 
         encryption_status = global_state.record_sent_email(email.From, recipients)
         encryption_status_data.loc[index] = encryption_status
@@ -276,7 +279,7 @@ def simulate_claimchain_no_privacy(context):
             if (email.From, recipient) not in global_state.public_views:
                 global_state.create_public_view(email.From, recipient)
 
-        global_state.maybe_update_key(email.From)
+        global_state.maybe_update_key(email.From, email.mtime)
         global_state.maybe_update_chain(email.From)
 
         encryption_status = global_state.record_sent_email(email.From, recipients)
@@ -361,7 +364,7 @@ def simulate_claimchain_with_privacy(context):
             if (email.From, recipient) not in global_state.public_views:
                 global_state.create_public_view(email.From, recipient)
 
-        global_state.maybe_update_key(email.From)
+        global_state.maybe_update_key(email.From, email.mtime)
         global_state.maybe_update_chain(email.From)
 
         encryption_status = global_state.record_sent_email(email.From, recipients)
