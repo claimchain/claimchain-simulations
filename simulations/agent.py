@@ -289,7 +289,7 @@ class Agent(object):
                     .key_update_every_nb_sent_emails
 
             if nb_sent_emails_thresh is not None and \
-               self.nb_sent_emails > nb_sent_emails_thresh:
+               self.nb_sent_emails >= nb_sent_emails_thresh:
                 self.update_key()
 
             else:
