@@ -184,7 +184,7 @@ class GlobalState(object):
         min_nb_sent_emails = SimulationParams.get_default().key_update_every_nb_sent_emails
 
         if force or (min_nb_sent_emails is not None and \
-                     self.nb_sent_emails_by_user[user] > min_nb_sent_emails):
+                     self.nb_sent_emails_by_user[user] % min_nb_sent_emails == 0):
             self.state_by_user[user].update_key()
             self.maybe_update_chain(user, force=True)
             return True
