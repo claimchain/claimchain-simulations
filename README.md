@@ -1,6 +1,6 @@
 # ClaimChain simulations
 
-See main ClaimChain repo [here](https://github.com/gdanezis/claimchain-core).
+See the main ClaimChain repo [here](https://github.com/claimchain/claimchain-core).
 
 ## Installation
 
