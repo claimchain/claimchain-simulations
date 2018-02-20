@@ -185,7 +185,7 @@ class GlobalState(object):
         if force or (min_nb_sent_emails is not None and \
                      self.nb_sent_emails_by_user[user] >= min_nb_sent_emails)\
                 or (min_nb_days is not None and \
-                    (self.date_of_last_key_update[user] - date.fromtimestamp(mtime)).days >= min_nb_days):
+                    (date.fromtimestamp(mtime) - self.date_of_last_key_update[user]).days >= min_nb_days):
             self.state_by_user[user].update_key()
             self.nb_sent_emails_by_user[user] = 0
             self.date_of_last_key_update[user] = date.fromtimestamp(mtime)

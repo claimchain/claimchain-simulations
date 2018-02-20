@@ -6,6 +6,7 @@ import itertools
 import logging
 
 from collections import defaultdict
+from datetime import date
 
 from attr import attrs, attrib
 from hippiehug import Chain
@@ -91,6 +92,7 @@ class AgentSettings(object):
     chain_update_policy = attrib(default=immediate_chain_update_policy)
     introduction_policy = attrib(default=implicit_cc_introduction_policy)
     key_update_every_nb_sent_emails = attrib(default=None)
+    key_update_every_nb_days = attrib(default=None)
 
 
 class Agent(object):
@@ -107,6 +109,7 @@ class Agent(object):
 
         # Stats
         self.nb_sent_emails = 0
+        self.date_of_last_key_update = None
 
         # Committed views and capabilities
         self.committed_caps = {}
@@ -256,7 +259,7 @@ class Agent(object):
 
         return view
 
-    def send_message(self, recipients):
+    def send_message(self, recipients, mtime):
         """
         Compute additional data to be sent to recipients
 
@@ -287,10 +290,20 @@ class Agent(object):
             # TODO: Make key update decision a policy.
             nb_sent_emails_thresh = AgentSettings.get_default() \
                     .key_update_every_nb_sent_emails
+            min_nb_days = AgentSettings.get_default() \
+                    .key_update_every_nb_days
+
+            if self.date_of_last_key_update is None:
+                self.date_of_last_key_update = date.fromtimestamp(mtime)
 
             if nb_sent_emails_thresh is not None and \
-               self.nb_sent_emails >= nb_sent_emails_thresh:
+               self.nb_sent_emails >= nb_sent_emails_thresh \
+                or (min_nb_days is not None and \
+                    date.fromtimestamp(mtime) - \
+                    self.date_of_last_key_update).days >= min_nb_days:
                 self.update_key()
+                self.nb_sent_emails = 0
+                self.date_of_last_key_update = date.fromtimestamp(mtime)
 
             else:
                 # Decide whether to update the chain.

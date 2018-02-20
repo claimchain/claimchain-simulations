@@ -142,7 +142,7 @@ def simulate_claimchain(context):
         sender = global_state.agents[email.From]
 
         # Send the email
-        message_metadata = sender.send_message(recipient_emails)
+        message_metadata = sender.send_message(recipient_emails, email.mtime)
 
         # Check if the email is plaintext, encrypted, or stale
         enc_status = get_encryption_status(
