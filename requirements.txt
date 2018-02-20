@@ -3,7 +3,7 @@ attrs==17.4.0
 base58==0.2.5
 bleach==2.1.2
 cffi==1.11.4
--e git+https://github.com/gdanezis/claimchain-core@3e0b71768362a9b9031b9838916d7a3e2b150014#egg=claimchain
+-e git+https://github.com/gdanezis/claimchain-core@59d5264b79bdb191be599606cc73de1f96879edb#egg=claimchain
 coverage==4.5.1
 cycler==0.10.0
 decorator==4.2.1
