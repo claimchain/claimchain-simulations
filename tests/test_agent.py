@@ -15,13 +15,13 @@ def test_agent_send_and_receive_email():
     alice = Agent('alice')
     bob = Agent('bob')
 
-    message_metadata = alice.send_message(['bob'])
+    message_metadata = alice.send_message(['bob'], 1519088028)
     bob.receive_message('alice', message_metadata)
 
     assert alice.get_latest_view('bob') is None
     assert bob.get_latest_view('alice').head == alice.head
 
-    message_metadata = bob.send_message(['alice'])
+    message_metadata = bob.send_message(['alice'], 1519088028)
     alice.receive_message('bob', message_metadata)
 
     assert alice.get_latest_view('bob').head == bob.head
@@ -35,11 +35,11 @@ def test_agent_cross_references():
 
     # Carol -> Alice
     # Alice learns about Carol
-    message_metadata = carol.send_message(['alice'])
+    message_metadata = carol.send_message(['alice'], 1519088028)
     alice.receive_message('carol', message_metadata)
 
     # Alice -> Bob, and Carol in CC
-    message_metadata = alice.send_message(['bob', 'carol'])
+    message_metadata = alice.send_message(['bob', 'carol'], 1519088028)
     bob.receive_message('alice', message_metadata,
                         other_recipients=['carol'])
 
@@ -49,11 +49,11 @@ def test_agent_cross_references():
     assert bob.get_latest_view('carol') is None
 
     # Bob -> Alice
-    message_metadata = bob.send_message(['alice'])
+    message_metadata = bob.send_message(['alice'], 1519088028)
     alice.receive_message('bob', message_metadata)
 
     # Alice -> Bob once again
-    message_metadata = alice.send_message(['bob'])
+    message_metadata = alice.send_message(['bob'], 1519088028)
     bob.receive_message('alice', message_metadata)
 
     # Bob has learned about both Alice and Carol
@@ -68,12 +68,12 @@ def test_agent_chain_update():
 
     # Carol -> Alice
     # Alice learns about Carol
-    message_metadata = carol.send_message(['alice'])
+    message_metadata = carol.send_message(['alice'], 1519088028)
     alice.receive_message('carol', message_metadata)
 
     # Alice -> Bob, and Carol in CC
     alice_head0 = alice.head
-    message_metadata = alice.send_message(['bob', 'carol'])
+    message_metadata = alice.send_message(['bob', 'carol'], 1519088028)
     # Alice updates her chain, because she learned about Carol
     assert alice.head != alice_head0
 
@@ -82,7 +82,7 @@ def test_agent_chain_update():
 
     # Bob -> Alice
     bob_head0 = bob.head
-    message_metadata = bob.send_message(['alice'])
+    message_metadata = bob.send_message(['alice'], 1519088028)
     # Bob updates his chain with Alice's latest view
     assert bob.head != bob_head0
 
@@ -90,7 +90,7 @@ def test_agent_chain_update():
 
     # Alice -> Bob once again
     alice_head1 = alice.head
-    message_metadata = alice.send_message(['bob'])
+    message_metadata = alice.send_message(['bob'], 1519088028)
     # Alice learned about Bob's head, so she updates
     assert alice.head != alice_head1
 
@@ -98,7 +98,7 @@ def test_agent_chain_update():
 
     # Bob -> Alice once again
     bob_head1 = bob.head
-    message_metadata = bob.send_message(['alice'])
+    message_metadata = bob.send_message(['alice'], 1519088028)
     assert bob.head != bob_head1
 
 
@@ -112,11 +112,11 @@ def test_agent_public_contacts_policy():
 
         # Carol -> Alice
         # Alice learns about Carol
-        message_metadata = carol.send_message(['alice'])
+        message_metadata = carol.send_message(['alice'], 1519088028)
         alice.receive_message('carol', message_metadata)
 
         # Alice -> Bob
-        message_metadata = alice.send_message(['bob'])
+        message_metadata = alice.send_message(['bob'], 1519088028)
         bob.receive_message('alice', message_metadata)
 
         # Bob learned about Carol
@@ -127,20 +127,20 @@ def test_agent_public_contacts_policy():
         assert carol.get_latest_view('alice') is None
 
         # Bob -> Carol
-        message_metadata = bob.send_message(['carol'])
+        message_metadata = bob.send_message(['carol'], 1519088028)
         carol.receive_message('bob', message_metadata)
 
         assert carol.get_latest_view('bob') is not None
         assert carol.get_latest_view('alice') is not None
 
         # Carol -> Alice
-        message_metadata = carol.send_message(['alice'])
+        message_metadata = carol.send_message(['alice'], 1519088028)
         alice.receive_message('carol', message_metadata)
 
         assert alice.get_latest_view('bob').head is not None
         assert alice.get_latest_view('carol').head is not None
 
-        alice.send_message('whoever')
+        alice.send_message('whoever', 1519088028)
 
         assert alice.committed_caps[PUBLIC_READER_LABEL] == {'bob', 'carol'}
         assert bob.committed_caps[PUBLIC_READER_LABEL] == {'alice', 'carol'}

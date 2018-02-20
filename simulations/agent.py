@@ -296,11 +296,11 @@ class Agent(object):
             if self.date_of_last_key_update is None:
                 self.date_of_last_key_update = date.fromtimestamp(mtime)
 
-            if nb_sent_emails_thresh is not None and \
-               self.nb_sent_emails >= nb_sent_emails_thresh \
+            if (nb_sent_emails_thresh is not None and \
+               self.nb_sent_emails >= nb_sent_emails_thresh) \
                 or (min_nb_days is not None and \
-                    date.fromtimestamp(mtime) - \
-                    self.date_of_last_key_update).days >= min_nb_days:
+                    (date.fromtimestamp(mtime) - \
+                     self.date_of_last_key_update).days >= min_nb_days):
                 self.update_key()
                 self.nb_sent_emails = 0
                 self.date_of_last_key_update = date.fromtimestamp(mtime)
