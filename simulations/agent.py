@@ -259,13 +259,14 @@ class Agent(object):
 
         return view
 
-    def send_message(self, recipients, mtime):
+    def send_message(self, recipients, mtime=0):
         """
         Compute additional data to be sent to recipients
 
         NOTE: May update the chain if required by the update policy
 
         :param recipients: An iterable of recipient identifiers (emails)
+        :param mtime: Timestamp
         :returns: ``MessageMetadata`` object
         """
         logger.debug('%s -> %s', self.email, recipients)
@@ -296,11 +297,15 @@ class Agent(object):
             if self.date_of_last_key_update is None:
                 self.date_of_last_key_update = date.fromtimestamp(mtime)
 
-            if (nb_sent_emails_thresh is not None and \
-               self.nb_sent_emails >= nb_sent_emails_thresh) \
-                or (min_nb_days is not None and \
-                    (date.fromtimestamp(mtime) - \
-                     self.date_of_last_key_update).days >= min_nb_days):
+            nb_sent_based_update = nb_sent_emails_thresh is not None and \
+                    self.nb_sent_emails >= nb_sent_emails_thresh
+
+            days_since_last_update = (date.fromtimestamp(mtime) - \
+                    self.date_of_last_key_update).days
+            time_based_update = min_nb_days is not None and \
+                    days_since_last_update >= min_nb_days
+
+            if nb_sent_based_update or time_based_update:
                 self.update_key()
                 self.nb_sent_emails = 0
                 self.date_of_last_key_update = date.fromtimestamp(mtime)
