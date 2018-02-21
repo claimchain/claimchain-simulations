@@ -6,7 +6,7 @@ import itertools
 import logging
 
 from collections import defaultdict
-from datetime import date
+from datetime import datetime
 
 from attr import attrs, attrib
 from hippiehug import Chain
@@ -297,15 +297,19 @@ class Agent(object):
             nb_sent_based_update = nb_sent_emails_thresh is not None and \
                     self.nb_sent_emails >= nb_sent_emails_thresh
 
-            if self.date_of_last_key_update is None:
-                days_since_last_update = date.fromtimestamp(mtime)
-            time_based_update = min_nb_days is not None and \
-                    days_since_last_update >= min_nb_days
+            time_based_update = False
+            if self.date_of_last_key_update is not None:
+                days_since_last_update = (datetime.fromtimestamp(
+                    mtime) - self.date_of_last_key_update).days
+                if min_nb_days is not None:
+                    time_based_update = days_since_last_update >= min_nb_days
+                time_based_update = min_nb_days is not None and (
+                        days_since_last_update >= min_nb_days)
 
             if nb_sent_based_update or time_based_update:
                 self.update_key()
                 self.nb_sent_emails = 0
-                self.date_of_last_key_update = date.fromtimestamp(mtime)
+                self.date_of_last_key_update = datetime.fromtimestamp(mtime)
 
             else:
                 # Decide whether to update the chain.
