@@ -6,8 +6,8 @@ from simulations.scenarios import *
 from simulations.agent import *
 
 
-PUBLIC_NB_PLAINTEXTS = 722
-PRIVATE_NB_PLAINTEXTS = 744
+PUBLIC_NB_PLAINTEXTS = 721
+PRIVATE_NB_PLAINTEXTS = 743
 
 
 @pytest.mark.parametrize('agent_setting', [
@@ -20,6 +20,10 @@ PRIVATE_NB_PLAINTEXTS = 744
                   key_update_every_nb_days=7),
     AgentSettings(introduction_policy=public_contacts_policy,
                   key_update_every_nb_days=30),
+    AgentSettings(introduction_policy=public_contacts_policy,
+                  key_update_every_nb_days=90),
+    AgentSettings(introduction_policy=public_contacts_policy,
+                  key_update_every_nb_days=365),
     ])
 def test_public_claimchain(context, agent_setting):
     with agent_setting.as_default():
@@ -35,6 +39,8 @@ def test_public_claimchain(context, agent_setting):
     AgentSettings(key_update_every_nb_sent_emails=50),
     AgentSettings(key_update_every_nb_days=7),
     AgentSettings(key_update_every_nb_days=30),
+    AgentSettings(key_update_every_nb_days=90),
+    AgentSettings(key_update_every_nb_days=365),
     ])
 def test_private_claimchain(context, agent_setting):
     with agent_setting.as_default():

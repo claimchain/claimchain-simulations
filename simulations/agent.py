@@ -298,18 +298,20 @@ class Agent(object):
                     self.nb_sent_emails >= nb_sent_emails_thresh
 
             time_based_update = False
+            sending_date = datetime.fromtimestamp(mtime)
             if self.date_of_last_key_update is not None:
-                days_since_last_update = (datetime.fromtimestamp(
-                    mtime) - self.date_of_last_key_update).days
+                days_since_last_update = (
+                        sending_date - self.date_of_last_key_update).days
                 if min_nb_days is not None:
                     time_based_update = days_since_last_update >= min_nb_days
                 time_based_update = min_nb_days is not None and (
                         days_since_last_update >= min_nb_days)
+            else:
+                self.date_of_last_key_update = sending_date
 
             if nb_sent_based_update or time_based_update:
-                self.update_key()
+                self.update_key(mtime)
                 self.nb_sent_emails = 0
-                self.date_of_last_key_update = datetime.fromtimestamp(mtime)
 
             else:
                 # Decide whether to update the chain.
@@ -531,13 +533,15 @@ class Agent(object):
             self.queued_views.clear()
             self.queued_caps.clear()
 
-    def update_key(self):
+    def update_key(self, mtime=None):
         """
         Force update of the encryption key, and the chain
         """
         logger.debug('%s / key update', self.email)
         self.queued_identity_info = Agent.generate_public_key()
         self.update_chain()
+        if mtime is not None:
+            self.date_of_last_key_update = datetime.fromtimestamp(mtime)
 
     def __repr__(self):
         return 'Agent("%s")' % self.email
