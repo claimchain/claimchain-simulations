@@ -294,14 +294,11 @@ class Agent(object):
             min_nb_days = AgentSettings.get_default() \
                     .key_update_every_nb_days
 
-            if self.date_of_last_key_update is None:
-                self.date_of_last_key_update = date.fromtimestamp(mtime)
-
             nb_sent_based_update = nb_sent_emails_thresh is not None and \
                     self.nb_sent_emails >= nb_sent_emails_thresh
 
-            days_since_last_update = (date.fromtimestamp(mtime) - \
-                    self.date_of_last_key_update).days
+            if self.date_of_last_key_update is None:
+                days_since_last_update = date.fromtimestamp(mtime)
             time_based_update = min_nb_days is not None and \
                     days_since_last_update >= min_nb_days
 
