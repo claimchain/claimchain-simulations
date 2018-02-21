@@ -13,11 +13,13 @@ PRIVATE_NB_PLAINTEXTS = 743
 @pytest.mark.parametrize('agent_setting', [
     AgentSettings(introduction_policy=public_contacts_policy),
     AgentSettings(introduction_policy=public_contacts_policy,
-                  key_update_every_nb_sent_emails=5),
-    AgentSettings(introduction_policy=public_contacts_policy,
                   key_update_every_nb_sent_emails=10),
     AgentSettings(introduction_policy=public_contacts_policy,
                   key_update_every_nb_sent_emails=50),
+    AgentSettings(introduction_policy=public_contacts_policy,
+                  key_update_every_nb_days=7),
+    AgentSettings(introduction_policy=public_contacts_policy,
+                  key_update_every_nb_days=30),
     ])
 def test_public_claimchain(context, agent_setting):
     with agent_setting.as_default():
@@ -29,9 +31,10 @@ def test_public_claimchain(context, agent_setting):
 
 @pytest.mark.parametrize('agent_setting', [
     AgentSettings(),
-    AgentSettings(key_update_every_nb_sent_emails=5),
     AgentSettings(key_update_every_nb_sent_emails=10),
     AgentSettings(key_update_every_nb_sent_emails=50),
+    AgentSettings(key_update_every_nb_days=7),
+    AgentSettings(key_update_every_nb_days=30),
     ])
 def test_private_claimchain(context, agent_setting):
     with agent_setting.as_default():

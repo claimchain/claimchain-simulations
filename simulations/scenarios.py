@@ -7,6 +7,7 @@ import pandas as pd
 
 from attr import asdict
 from msgpack import packb
+from tqdm import tqdm
 
 from .agent import Agent, AgentSettings
 from .utils import *
@@ -127,14 +128,17 @@ def get_link_status(global_state, sender_email, recipient_emails):
     return link_status_summary, link_statuses
 
 
-def simulate_claimchain(context):
+def simulate_claimchain(context, pbar=None):
     logger.info('Simulating ClaimChain')
     logger.info('Common agent settings: %s', AgentSettings.get_default())
 
     global_state = GlobalState(context)
     reports = SimulationReports(context)
 
-    for index, email in enumerate(context.log):
+    if pbar is None:
+        pbar = tqdm
+
+    for index, email in pbar(list(enumerate(context.log))):
         recipient_emails = (email.To | email.Cc | email.Bcc) - {email.From}
         if len(recipient_emails) == 0:
             continue
@@ -199,9 +203,6 @@ def simulate_claimchain(context):
                     len(observed_nodes)
 
         global_state.recipients_by_sender[email.From] |= recipient_emails
-
-        if index % 1000 == 0:
-            logging.info('Email #%d', index)
 
     logging.info('Emails: Sent: %d, Encrypted: %d',
             global_state.sent_email_count,
