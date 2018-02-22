@@ -209,6 +209,29 @@ class Agent(object):
             if not self.expected_caps[reader]:
                 del self.expected_caps[reader]
 
+    def get_social_evidence(self, contact):
+        # Collect possible candidates
+        own_views = set()
+        # ...starting with existing views of the contact.
+        if contact in self.committed_views:
+            own_views.add(self.committed_views[contact])
+        if contact in self.queued_views:
+            own_views.add(self.queued_views[contact])
+        if contact in self.expected_views:
+            own_views.add(self.expected_views[contact])
+
+        # Get a view of contact in question from every friend.
+        current_friends = set(self.committed_views.keys()) \
+                        | set(self.queued_views.keys())    \
+                        | set(self.expected_views.keys())
+        views_by_friend = {}
+        for friend in current_friends - {contact, self.email}:
+            candidate_view = self.global_views[friend].get(contact)
+            if candidate_view is not None:
+                views_by_friend[friend] = candidate_view
+
+        return own_views, views_by_friend
+
     def get_latest_view(self, contact, save=True):
         """
         Resolve latest view for contact through social policy
@@ -221,32 +244,14 @@ class Agent(object):
         :param contact: Contact identifier
         :param save: Whether to save the resolved view to the queue
         """
+        own_views, views_by_friend = self.get_social_evidence(contact)
         policy = AgentSettings.get_default().conflict_resolution_policy
+        candidate_views = own_views | set(views_by_friend.values())
 
-        # Collect possible candidates
-        candidate_views = set()
-        # ...starting with existing views of the contact.
-        if contact in self.committed_views:
-            candidate_views.add(self.committed_views[contact])
-        if contact in self.queued_views:
-            candidate_views.add(self.queued_views[contact])
-        if contact in self.expected_views:
-            candidate_views.add(self.expected_views[contact])
-
-        # Get a view of contact in question from every friend.
-        current_friends = set(self.committed_views.keys()) \
-                        | set(self.queued_views.keys())    \
-                        | set(self.expected_views.keys())
-        for friend in current_friends - {contact}:
-            candidate_view = self.global_views[friend].get(contact)
-            if candidate_view is not None:
-                candidate_views.add(candidate_view)
-
-        # If no candidates, return None.
         if len(candidate_views) == 0:
             return None
 
-        # Otherwise, resolve conflicts using a policy
+        # Resolve conflicts using a policy
         view = policy(self, candidate_views)
         # ...and add the resolved view to the queue.
         self.expected_views[contact] = view

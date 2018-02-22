@@ -43,6 +43,7 @@ class SimulationReports(object):
         self.outgoing_bandwidth_data = defaultdict(pd.Series)
         self.incoming_bandwidth_data = defaultdict(pd.Series)
         self.observed_social_graph_data = defaultdict(pd.Series)
+        self.social_evidence_diversity_data = defaultdict(pd.Series)
 
 
 class ParticipantsTypes(Enum):
@@ -170,6 +171,17 @@ def simulate_claimchain(context, pbar=None):
                 sender.sent_object_keys_to_recipients))
         reports.cache_size_data[email.From].loc[index] = \
                len(packed_sender_cache)
+
+        # Record social evidence diversity
+        diversity_values = []
+        for recipient_email in recipient_emails.intersection(context.senders):
+            own_views, views_by_friend = sender.get_social_evidence(
+                    recipient_email)
+            diversity_values.append(
+                    len(own_views) + len(set(views_by_friend.values())))
+
+        reports.social_evidence_diversity_data[email.From].loc[index] = \
+            diversity_values
 
         # Update states of recipients
         for recipient_email in recipient_emails.intersection(context.senders):
