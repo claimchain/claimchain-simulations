@@ -7,19 +7,19 @@ See the main ClaimChain repo [here](https://github.com/claimchain/claimchain-cor
 This is based on Python 3. You will need python and the python header
 files installed. On debian based systems you can achieve this with
 ```
-  apt install python3 python3-dev python3-pip
+  apt-get install python3 python3-dev python3-pip
 ```
 
 Some of the dependencies require more system packages:
 ```
-  apt install libssl-dev python3-matplotlib
+  apt-get install libssl-dev libffi-dev python3-matplotlib
 ```
 
 You probably also want virtualenv to isolate your development
 environment:
 ```
-  apt install python3-venv
-  pyvenv venv
+  apt-get install virtualenv
+  virtualenv -p python3 venv
   source venv/bin/activate
 ```
 
@@ -33,7 +33,7 @@ Now you can install the requirements:
 
 ## Download and parse the dataset
 
-Just run ``make`` from the project root to download and parse the dataset to
+Just run ``make enron`` from the project root to download and parse the dataset to
 the _Enron_ directory.
 
 ## Opening the Notebooks
