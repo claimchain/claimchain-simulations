@@ -47,7 +47,7 @@ def get_parsed_data(parsed_enron_path):
 
 
 def run_simulations(settings, enron_log, social_graph, max_entries, log_offset,
-             pbar=tqdm):
+                    pbar=tqdm):
     with settings.as_default():
        context = Context(enron_log[log_offset:log_offset+max_entries],
                          social_graph=social_graph)
