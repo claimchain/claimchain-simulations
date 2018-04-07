@@ -42,7 +42,7 @@ class SimulationReports(object):
         self.gossip_store_size_data = defaultdict(pd.Series)
         self.outgoing_bandwidth_data = defaultdict(pd.Series)
         self.incoming_bandwidth_data = defaultdict(pd.Series)
-        self.observed_social_graph_data = defaultdict(pd.Series)
+        # self.observed_social_graph_data = defaultdict(pd.Series)
         self.social_evidence_diversity_data = defaultdict(pd.Series)
 
 
@@ -129,92 +129,105 @@ def get_link_status(global_state, sender_email, recipient_emails):
     return link_status_summary, link_statuses
 
 
+def do_simulation_step(index, email, global_state, reports):
+    recipient_emails = (email.To | email.Cc | email.Bcc) - {email.From}
+    if len(recipient_emails) == 0:
+        return global_state, reports
+
+    sender = global_state.agents[email.From]
+
+    # Send the email
+    message_metadata = sender.send_message(recipient_emails, email.mtime)
+
+    # Check if the email is plaintext, encrypted, or stale
+    enc_status = get_encryption_status(
+            global_state, email.From, recipient_emails)
+    link_status, _ = get_link_status(
+            global_state, email.From, recipient_emails)
+    participants_type = get_participants_type(
+            global_state, email.From, recipient_emails)
+    reports.encryption_status_data.loc[index] = enc_status
+    reports.link_status_data.loc[index] = link_status
+    reports.participants_type_data.loc[index] = participants_type
+
+    # Record bandwidth and cache size
+    packed_message_metadata = packb([
+            message_metadata.head,
+            list(message_metadata.public_contacts),
+            serialize_store(message_metadata.store)])
+    reports.outgoing_bandwidth_data[email.From].loc[index] = \
+           len(packed_message_metadata)
+    packed_sender_cache = packb(serialize_caches(
+            sender.sent_object_keys_to_recipients))
+    reports.cache_size_data[email.From].loc[index] = \
+           len(packed_sender_cache)
+
+    # Record social evidence diversity
+    diversity_values = []
+    relevant_recipients = recipient_emails.intersection(
+            global_state.context.senders)
+    for recipient_email in relevant_recipients:
+        own_views, views_by_friend = sender.get_social_evidence(
+                recipient_email)
+        diversity_values.append(
+                len(own_views) + len(set(views_by_friend.values())))
+
+    reports.social_evidence_diversity_data[email.From].loc[index] = \
+        diversity_values
+
+    # Update states of recipients
+    for recipient_email in relevant_recipients:
+        recipient = global_state.agents[recipient_email]
+        recipient.receive_message(email.From, message_metadata,
+                recipient_emails - {recipient_email})
+
+        # Record receiver store sizes
+        packed_recipient_local_store = \
+                packb([serialize_store(recipient.chain_store),
+                       serialize_store(recipient.tree_store)])
+        reports.local_store_size_data[recipient_email].loc[index] = \
+                len(packed_recipient_local_store)
+
+        packed_recipient_gossip_store = \
+                packb(serialize_store(recipient.gossip_store))
+        reports.gossip_store_size_data[recipient_email].loc[index] = \
+                len(packed_recipient_gossip_store)
+
+        # Record incoming bandwidth
+        reports.incoming_bandwidth_data[recipient_email].loc[index] = \
+                len(packed_message_metadata)
+
+        # Record size of reconstructed social graphs
+        # observed_nodes = set()
+        # for friend, views in recipient.global_views.items():
+        #     observed_nodes.add(friend)
+        #     for contact in views:
+        #         observed_nodes.add(contact)
+        # reports.observed_social_graph_data[recipient_email].loc[index] = \
+        #         len(observed_nodes)
+
+    global_state.recipients_by_sender[email.From] |= recipient_emails
+    return global_state, reports
+
+
+def init_simulations(context):
+    global_state = GlobalState(context)
+    reports = SimulationReports(context)
+    return global_state, reports
+
+
 def simulate_claimchain(context, pbar=None):
     logger.info('Simulating ClaimChain')
     logger.info('Common agent settings: %s', AgentSettings.get_default())
 
-    global_state = GlobalState(context)
-    reports = SimulationReports(context)
+    state, reports = init_simulations(context)
 
     if pbar is None:
         pbar = tqdm
 
     for index, email in pbar(list(enumerate(context.log))):
-        recipient_emails = (email.To | email.Cc | email.Bcc) - {email.From}
-        if len(recipient_emails) == 0:
-            continue
-
-        sender = global_state.agents[email.From]
-
-        # Send the email
-        message_metadata = sender.send_message(recipient_emails, email.mtime)
-
-        # Check if the email is plaintext, encrypted, or stale
-        enc_status = get_encryption_status(
-                global_state, email.From, recipient_emails)
-        link_status, _ = get_link_status(
-                global_state, email.From, recipient_emails)
-        participants_type = get_participants_type(
-                global_state, email.From, recipient_emails)
-        reports.encryption_status_data.loc[index] = enc_status
-        reports.link_status_data.loc[index] = link_status
-        reports.participants_type_data.loc[index] = participants_type
-
-        # Record bandwidth and cache size
-        packed_message_metadata = packb([
-                message_metadata.head,
-                list(message_metadata.public_contacts),
-                serialize_store(message_metadata.store)])
-        reports.outgoing_bandwidth_data[email.From].loc[index] = \
-               len(packed_message_metadata)
-        packed_sender_cache = packb(serialize_caches(
-                sender.sent_object_keys_to_recipients))
-        reports.cache_size_data[email.From].loc[index] = \
-               len(packed_sender_cache)
-
-        # Record social evidence diversity
-        diversity_values = []
-        for recipient_email in recipient_emails.intersection(context.senders):
-            own_views, views_by_friend = sender.get_social_evidence(
-                    recipient_email)
-            diversity_values.append(
-                    len(own_views) + len(set(views_by_friend.values())))
-
-        reports.social_evidence_diversity_data[email.From].loc[index] = \
-            diversity_values
-
-        # Update states of recipients
-        for recipient_email in recipient_emails.intersection(context.senders):
-            recipient = global_state.agents[recipient_email]
-            recipient.receive_message(email.From, message_metadata,
-                    recipient_emails - {recipient_email})
-
-            # Record receiver store sizes
-            packed_recipient_local_store = \
-                    packb([serialize_store(recipient.chain_store),
-                           serialize_store(recipient.tree_store)])
-            reports.local_store_size_data[recipient_email].loc[index] = \
-                    len(packed_recipient_local_store)
-
-            packed_recipient_gossip_store = \
-                    packb(serialize_store(recipient.gossip_store))
-            reports.gossip_store_size_data[recipient_email].loc[index] = \
-                    len(packed_recipient_gossip_store)
-
-            # Record incoming bandwidth
-            reports.incoming_bandwidth_data[recipient_email].loc[index] = \
-                    len(packed_message_metadata)
-
-            # Record size of reconstructed social graphs
-            observed_nodes = set()
-            for friend, views in recipient.global_views.items():
-                observed_nodes.add(friend)
-                for contact in views:
-                    observed_nodes.add(contact)
-            reports.observed_social_graph_data[recipient_email].loc[index] = \
-                    len(observed_nodes)
-
-        global_state.recipients_by_sender[email.From] |= recipient_emails
+        global_state, reports = do_simulation_step(
+                index, email, state, reports)
 
     logging.info('Emails: Sent: %d, Encrypted: %d',
             global_state.sent_email_count,

@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from scripts.parse_enron import Message
 from simulations import agent
-from simulations.scenarios import simulate_claimchain
+from simulations.scenarios import do_simulation_step, init_simulations
 from simulations.utils import Context
 from simulations.agent import AgentSettings
 
@@ -17,6 +17,9 @@ flags.DEFINE_integer('max_entries', 10000,
                      'Max number of log entries to simulate.')
 flags.DEFINE_integer('log_offset', 98377,
                      'Starting entry in the global log.')
+flags.DEFINE_integer('save_every_num', 100,
+                     ('Save intermediate simulations reports every '
+                      'n emails.'))
 flags.DEFINE_integer('key_update_every_nb_days', 90,
                      'Key update frequency in days.')
 flags.DEFINE_enum('introduction_policy', 'public_contacts',
@@ -47,12 +50,21 @@ def get_parsed_data(parsed_enron_path):
 
 
 def run_simulations(settings, enron_log, social_graph, max_entries, log_offset,
-                    pbar=tqdm):
+                    save_every_num, output, pbar=tqdm):
     with settings.as_default():
        context = Context(enron_log[log_offset:log_offset+max_entries],
                          social_graph=social_graph)
-       report = simulate_claimchain(context, pbar=pbar)
-    return report
+
+    state, reports = init_simulations(context)
+    for index, email in pbar(list(enumerate(context.log))):
+        state, reports = do_simulation_step(index, email, state, reports)
+
+        if index % save_every_num == 0:
+            with open(output, 'wb') as h:
+               pickle.dump(reports, h)
+
+    with open(output, 'wb') as h:
+       pickle.dump(reports, h)
 
 
 def main(argv):
@@ -60,10 +72,8 @@ def main(argv):
     settings = make_agent_settings(FLAGS.key_update_every_nb_days,
                                    FLAGS.introduction_policy)
     report = run_simulations(settings, enron_log, social_graph,
-                             FLAGS.max_entries, FLAGS.log_offset)
-
-    with open(FLAGS.output, 'wb') as h:
-       pickle.dump(report, h)
+                             FLAGS.max_entries, FLAGS.log_offset,
+                             FLAGS.save_every_num, FLAGS.output)
 
 
 if __name__ == '__main__':
