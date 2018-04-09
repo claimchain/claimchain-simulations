@@ -51,17 +51,15 @@ def get_parsed_data(parsed_enron_path):
 
 def run_simulations(settings, enron_log, social_graph, max_entries, log_offset,
                     save_every_num, output, pbar=tqdm):
-    with settings.as_default():
-       context = Context(enron_log[log_offset:log_offset+max_entries],
-                         social_graph=social_graph)
-
+    context = Context(enron_log[log_offset:log_offset+max_entries],
+                      social_graph=social_graph)
     state, reports = init_simulations(context)
-    for index, email in pbar(list(enumerate(context.log))):
-        state, reports = do_simulation_step(index, email, state, reports)
-
-        if index % save_every_num == 0:
-            with open(output, 'wb') as h:
-               pickle.dump(reports, h)
+    with settings.as_default():
+        for index, email in pbar(list(enumerate(context.log))):
+            state, reports = do_simulation_step(index, email, state, reports)
+            if index % save_every_num == 0:
+                with open(output, 'wb') as h:
+                   pickle.dump(reports, h)
 
     with open(output, 'wb') as h:
        pickle.dump(reports, h)
