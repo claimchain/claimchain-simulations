@@ -8,7 +8,7 @@ cffi==1.11.4
 coverage==4.5.1
 cycler==0.10.0
 decorator==4.2.1
-defaultcontext==1.0.3
+defaultcontext==1.1.1
 docutils==0.14
 entrypoints==0.2.3
 future==0.16.0

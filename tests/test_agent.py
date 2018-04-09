@@ -1,3 +1,4 @@
+import datetime
 import pytest
 
 from hippiehug import Chain
@@ -26,6 +27,32 @@ def test_agent_send_and_receive_email():
 
     assert alice.get_latest_view('bob').head == bob.head
     assert bob.get_latest_view('alice').head == alice.head
+
+
+def test_agent_time_based_chain_update():
+    with AgentSettings(key_update_every_nb_days=1).as_default():
+        alice = Agent('alice')
+        bob = Agent('bob')
+        assert alice.date_of_last_key_update is None
+
+        # Alice -> Bob. Alice's chain gets updated.
+        initial_timestamp = timestamp = 1519088028
+        alice.send_message(['bob'], timestamp)
+        assert alice.date_of_last_key_update == datetime.fromtimestamp(
+                timestamp)
+
+        # Alice -> Bob in 12 hours. Alice's chain stays the same.
+        timestamp += 3600 * 12
+        alice.send_message(['bob'], timestamp)
+        assert alice.date_of_last_key_update == datetime.fromtimestamp(
+                initial_timestamp)
+
+        # Alice -> Bob in another 12 hours. Alice's chain and key are
+        # updated, since the key rotates every day.
+        timestamp += 3600 * 12
+        alice.send_message(['bob'], timestamp)
+        assert alice.date_of_last_key_update == datetime.fromtimestamp(
+                timestamp)
 
 
 def test_agent_cross_references():
