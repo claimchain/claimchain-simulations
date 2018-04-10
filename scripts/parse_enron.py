@@ -96,7 +96,7 @@ def parse_mail(dirpath, filename):
     return mail, mID
 
 
-def process_enron(root_folder='Enron/maildir/', parsed_folder='Enron/parsing/'):
+def process_enron(root_folder='data/enron/maildir/', parsed_folder='data/enron/parsed/'):
     ####################################################################
     # SAMPLE EMAIL FROM ENRON DATASET (fields of interest)
     ##
