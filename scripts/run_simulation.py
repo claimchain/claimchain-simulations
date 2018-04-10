@@ -29,7 +29,7 @@ flags.DEFINE_string('parsed_enron_path', 'Enron/parsing',
                     'Path to directory with parsed Enron pickles.')
 flags.DEFINE_string('output',
                     'notebooks/reports/public_claimchain_report-98377.pkl',
-                    'Name of output pickle.')
+                    'Path and name of the output pickle.')
 
 
 def make_agent_settings(key_update_every_nb_days, introduction_policy):
