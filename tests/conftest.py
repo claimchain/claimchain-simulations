@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import pickle
 
@@ -8,19 +10,19 @@ import __main__
 __main__.Message = Message
 
 
-parsed_logs_folder = 'Enron/parsing/'
+parsed_logs_folder = 'data/enron/parsed/'
 log_entries_lim = 1000
 
 
 @pytest.fixture
 def log():
-    with open(parsed_logs_folder + "replay_log.pkl", "rb") as f:
+    with open(os.path.join(parsed_logs_folder, "replay_log.pkl"), "rb") as f:
         yield pickle.load(f)[:log_entries_lim]
 
 
 @pytest.fixture
 def social_graph():
-    with open(parsed_logs_folder + "social.pkl", "rb") as f:
+    with open(os.path.join(parsed_logs_folder, "social.pkl"), "rb") as f:
         yield pickle.load(f)
 
 

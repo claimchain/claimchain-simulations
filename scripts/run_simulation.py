@@ -25,10 +25,10 @@ flags.DEFINE_integer('key_update_every_nb_days', 90,
 flags.DEFINE_enum('introduction_policy', 'public_contacts',
                   ['implicit_cc', 'public_contacts'],
                   'Introduction policy.')
-flags.DEFINE_string('parsed_enron_path', 'Enron/parsing',
+flags.DEFINE_string('parsed_enron_path', 'data/enron/parsed',
                     'Path to directory with parsed Enron pickles.')
 flags.DEFINE_string('output',
-                    'notebooks/reports/public_claimchain_report-98377.pkl',
+                    'data/reports/public_claimchain_report-98377.pkl',
                     'Path and name of the output pickle.')
 
 
