@@ -42,8 +42,8 @@ class SimulationReports(object):
         self.gossip_store_size_data = defaultdict(pd.Series)
         self.outgoing_bandwidth_data = defaultdict(pd.Series)
         self.incoming_bandwidth_data = defaultdict(pd.Series)
-        # self.observed_social_graph_data = defaultdict(pd.Series)
         self.social_evidence_diversity_data = defaultdict(pd.Series)
+        self.unique_evidence_data = defaultdict(pd.Series)
 
 
 class ParticipantsTypes(Enum):
@@ -162,18 +162,24 @@ def do_simulation_step(index, email, global_state, reports):
     reports.cache_size_data[email.From].loc[index] = \
            len(packed_sender_cache)
 
+
     # Record social evidence diversity
-    diversity_values = []
     relevant_recipients = recipient_emails.intersection(
             global_state.context.senders)
+    unique_evidence_sizes = []
+    diversity_values = []
+
     for recipient_email in relevant_recipients:
         own_views, views_by_friend = sender.get_social_evidence(
                 recipient_email)
-        diversity_values.append(
-                len(own_views) + len(set(views_by_friend.values())))
+        evidence = list(own_views) + list(views_by_friend.values())
+        diversity_values.append(len(evidence))
+        unique_evidence_sizes.append(len(set(evidence)))
 
     reports.social_evidence_diversity_data[email.From].loc[index] = \
         diversity_values
+    reports.unique_evidence_data[email.From].loc[index] = \
+        unique_evidence_sizes
 
     # Update states of recipients
     for recipient_email in relevant_recipients:
@@ -196,15 +202,6 @@ def do_simulation_step(index, email, global_state, reports):
         # Record incoming bandwidth
         reports.incoming_bandwidth_data[recipient_email].loc[index] = \
                 len(packed_message_metadata)
-
-        # Record size of reconstructed social graphs
-        # observed_nodes = set()
-        # for friend, views in recipient.global_views.items():
-        #     observed_nodes.add(friend)
-        #     for contact in views:
-        #         observed_nodes.add(contact)
-        # reports.observed_social_graph_data[recipient_email].loc[index] = \
-        #         len(observed_nodes)
 
     global_state.recipients_by_sender[email.From] |= recipient_emails
     return global_state, reports
