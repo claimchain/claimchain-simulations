@@ -93,6 +93,7 @@ class AgentSettings(object):
     introduction_policy = attrib(default=implicit_cc_introduction_policy)
     key_update_every_nb_sent_emails = attrib(default=None)
     key_update_every_nb_days = attrib(default=None)
+    optimize_sent_objects = attrib(default=False)
 
 
 class Agent(object):
@@ -368,8 +369,9 @@ class Agent(object):
             object_keys_to_send = set()
             for recipient in recipients:
                 if recipient not in self.sent_object_keys_to_recipients:
-                    self.sent_object_keys_to_recipients[recipient] = \
-                            relevant_keys
+                    if AgentSettings.get_default().optimize_sent_objects:
+                        self.sent_object_keys_to_recipients[recipient] = \
+                                relevant_keys
                     object_keys_to_send = relevant_keys
                 else:
                     object_keys_for_recipient = relevant_keys.difference(
