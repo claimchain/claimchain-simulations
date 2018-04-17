@@ -7,8 +7,8 @@ BREAKPOINTS_FILE=scripts/breakpoints.txt
 PUBLIC_BREAKPOINT="$(head -n $PUBLIC_BREAKPOINT_INDEX $BREAKPOINTS_FILE | tail -1)"
 
 OUTPUT_DIR=data/reports
-PRIVATE_OUT_PREFIX=private_claimchain_report_noopt
-PUBLIC_OUT_PREFIX=public_claimchain_report_noopt
+PRIVATE_OUT_PREFIX=private_claimchain_report
+PUBLIC_OUT_PREFIX=public_claimchain_report
 
 # Run private sims in parallel.
 cat $BREAKPOINTS_FILE | \
