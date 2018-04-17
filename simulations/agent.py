@@ -1,6 +1,7 @@
 import os
 import six
 import base64
+import msgpack
 import warnings
 import itertools
 import logging
@@ -9,9 +10,9 @@ from collections import defaultdict
 from datetime import datetime
 
 from attr import attrs, attrib
-from hippiehug import Chain
+from hippiehug import Chain, Block
 from claimchain import State, View, LocalParams
-from claimchain.utils import ObjectStore
+from claimchain.utils import ObjectStore, serialize_object
 from defaultcontext import with_default_context
 
 
@@ -24,6 +25,18 @@ logger = logging.getLogger(__name__)
 PUBLIC_READER_PARAMS = LocalParams.generate()
 
 PUBLIC_READER_LABEL = 'public'
+
+
+def serialize_block(block):
+    as_tuple = block.index, block.fingers, block.items, block.aux
+    return msgpack.packb(as_tuple,
+            use_bin_type=True, encoding="utf-8")
+
+
+def deserialize_block(serialized_block):
+    as_tuple = msgpack.unpackb(serialized_block, encoding="utf-8")
+    index, fingers, items, aux = as_tuple
+    return Block(items, index, fingers, aux)
 
 
 def latest_timestamp_resolution_policy(agent, views):
@@ -93,7 +106,7 @@ class AgentSettings(object):
     introduction_policy = attrib(default=implicit_cc_introduction_policy)
     key_update_every_nb_sent_emails = attrib(default=None)
     key_update_every_nb_days = attrib(default=None)
-    optimize_sent_objects = attrib(default=False)
+    optimize_sent_objects = attrib(default=True)
 
 
 class Agent(object):
@@ -360,9 +373,6 @@ class Agent(object):
                                 recipient_dh_pk, contact)
                         local_object_keys.update(evidence_keys)
 
-                        # Add contact's latest block.
-                        global_object_keys.add(contact_view.head)
-
             # Compute the minimal amount of objects that need to be sent in
             # this message.
             relevant_keys = local_object_keys | global_object_keys
@@ -442,18 +452,16 @@ class Agent(object):
             contacts = self.get_accessible_contacts(
                     sender, message_metadata, other_recipients)
             for contact in contacts - {self.email}:
-                contact_head = self.get_contact_head_from_view(
+                contact_latest_block = self.get_contact_head_from_view(
                         full_sender_view, contact)
-                if contact_head is None:
-                    continue
-                contact_latest_block = message_metadata.store.get(contact_head)
                 if contact_latest_block is not None:
-                    self.gossip_store[contact_head] = contact_latest_block
+                    contact_head_hash = contact_latest_block.hid
+                    self.gossip_store[contact_head_hash] = contact_latest_block
 
-                # NOTE: Assumes people send only contacts' latest blocks
-                contact_chain = Chain(self.gossip_store,
-                                      root_hash=contact_head)
-                self.global_views[sender][contact] = View(contact_chain)
+                    # NOTE: Assumes people send only contacts' latest blocks
+                    contact_chain = Chain(self.gossip_store,
+                                          root_hash=contact_head_hash)
+                    self.global_views[sender][contact] = View(contact_chain)
 
             # TODO: Needs a special check for contact==self.email.
 
@@ -472,10 +480,11 @@ class Agent(object):
         with self.params.as_default():
             claim = view.get(contact)
             if claim is not None:
-                return claim
+                return deserialize_block(claim)
         with PUBLIC_READER_PARAMS.as_default():
             claim = view.get(contact)
-        return claim
+            if claim is not None:
+                return deserialize_block(claim)
 
     def update_chain(self):
         """
@@ -498,10 +507,9 @@ class Agent(object):
 
             # Get heads of queued views into the claimchain state.
             for friend, view in self.queued_views.items():
-                claim = view.chain.head
-                if claim is not None:
-                    self.state[friend] = claim
-                    self.committed_views[friend] = view
+                latest_block = view.chain.store.get(view.head)
+                self.state[friend] = serialize_block(latest_block)
+                self.committed_views[friend] = view
 
             # Get capabilities in the capability queue into the claimchain
             # state, for those subjects whose keys are known.
