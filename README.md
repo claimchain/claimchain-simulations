@@ -12,7 +12,7 @@ files installed. On debian based systems you can achieve this with
 
 Some of the dependencies require more system packages:
 ```
-  apt-get install build-essential python3-dev libssl-dev libffi-dev python3-matplotlib
+  apt-get install build-essential libssl-dev libffi-dev python3-matplotlib
 ```
 
 You probably also want venv to isolate your development
@@ -34,7 +34,7 @@ Now you can install the requirements:
 ## Download and parse the dataset
 
 Just run ``make enron`` from the project root to download and parse the dataset to
-the _Enron_ directory.
+the _data/enron directory.
 
 ## Opening the Notebooks
 
