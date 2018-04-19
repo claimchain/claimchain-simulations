@@ -34,34 +34,23 @@ Now you can install the requirements:
 ## Download and parse the dataset
 
 Just run ``make enron`` from the project root to download and parse the dataset to
-the _data/enron directory.
+the ``data/enron`` directory.
 
-## Opening the Notebooks
+## Run the simulations
 
-We use Jupyter nodebooks to run the simulations. You can start Jupyter
-with
-  jupyter
+To run all simulations from the paper, just run ``make reports``. Mind that they
+can use up to 50 GB of RAM. The simulations generate reports containing different
+log information. The reports are saved to the ``data/reports`` directory.
 
-In the browser window that opens you can then open the notebook in
-question and run it.
+## Opening the notebooks
 
-## Making the notebooks work...
+We use Jupyter nodebooks to compute statistics and show the plots. You can start
+Jupyter with
 
-The `run_scenarios` notebook expects a reports directory to exist inside
-the notebooks folder.
-
-Currently the code to compute new reports is commented out in the
-notebook and instead it tries to load reports stored on disk.
-In order to start from scratch you will have to uncomment the lines
-following
 ```
-# Compute new reports
+  jupyter notebook
 ```
 
-## Running notebooks on the command line
+This will open a browser window, where you can select a notebook and run it.
 
-You can use runipy to run a given notebook from the command line:
-```
-  pip install runipy
-  runipy notebooks/run_scenarios.ipynb
-```
+The notebooks will save the produced plots to ``data/images`` directory.
