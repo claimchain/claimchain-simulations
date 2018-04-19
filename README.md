@@ -12,14 +12,14 @@ files installed. On debian based systems you can achieve this with
 
 Some of the dependencies require more system packages:
 ```
-  apt-get install libssl-dev libffi-dev python3-matplotlib
+  apt-get install build-essential python3-dev libssl-dev libffi-dev python3-matplotlib
 ```
 
-You probably also want virtualenv to isolate your development
+You probably also want venv to isolate your development
 environment:
 ```
-  apt-get install virtualenv
-  virtualenv -p python3 venv
+  apt-get install python3-venv
+  python3 -m venv venv
   source venv/bin/activate
 ```
 
