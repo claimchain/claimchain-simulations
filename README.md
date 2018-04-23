@@ -1,5 +1,7 @@
 # ClaimChain simulations
 
+[![Build Status](https://travis-ci.org/claimchain/claimchain-simulations.svg?branch=master)](https://travis-ci.org/claimchain/claimchain-simulations)
+
 This repo contains simulations for in-band public key distribution powered by ClaimChains. See the main [web page](https://claimchain.github.io) to learn about ClaimChain.
 
 ## Installation
