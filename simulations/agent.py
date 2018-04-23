@@ -561,8 +561,9 @@ class Agent(object):
                     self.committed_caps[reader] = set(contacts)
 
             for reader, reader_dh_pk in dh_pk_by_reader.items():
-                contacts = self.committed_caps[reader]
-                self.state.grant_access(reader_dh_pk, contacts)
+                contacts = self.committed_caps.get(reader)
+                if contacts:
+                    self.state.grant_access(reader_dh_pk, contacts)
 
             # Commit state.
             head = self.state.commit(target_chain=self.chain,
