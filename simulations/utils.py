@@ -1,5 +1,5 @@
 """
-Misc utility functions and classes for simulations
+Misc. utility functions and classes for simulations
 """
 
 from enum import Enum

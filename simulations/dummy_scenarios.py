@@ -1,3 +1,10 @@
+"""
+Initial prototype of the simulations that does not involve actual
+ClaimChain operations.
+
+This has not been tested for quite a bit of time.
+"""
+
 import pandas as pd
 
 from collections import defaultdict

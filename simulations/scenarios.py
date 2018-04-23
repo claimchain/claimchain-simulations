@@ -1,3 +1,7 @@
+"""
+Simulations of ClaimChain key distribution.
+"""
+
 import sys
 import logging
 from collections import defaultdict
@@ -17,9 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class GlobalState(object):
-    """
-    Current state of simulation at a point in time
-    """
+    """Current state of a simulation at a point in time."""
     def __init__(self, context):
         self.context = context
         self.agents = {}
@@ -31,6 +33,7 @@ class GlobalState(object):
 
 
 class SimulationReports(object):
+    """Simulation results."""
     def __init__(self, context):
         self.encryption_status_data = pd.Series()
         self.participants_type_data = pd.Series()
@@ -47,14 +50,14 @@ class SimulationReports(object):
 
 
 class ParticipantsTypes(Enum):
-    userset = 0
-    userset_to_global = 1
-    other = 2
+    """Type of participants in an email."""
+    userset = 0             # Within Enron.
+    userset_to_global = 1   # Enron to outside-of-Enron.
+    other = 2               # Anything else.
 
 
 def get_encryption_status(global_state, sender_email, recipient_emails):
-    """
-    Determine encryption status
+    """Determine encryption status of an email.
 
     :param global_state: ``GlobalState`` object
     :param sender_email: Sender's email
@@ -81,7 +84,7 @@ def get_encryption_status(global_state, sender_email, recipient_emails):
         if view_enc_key is None:
             return EncStatus.plaintext
         elif recipient_email in global_state.context.senders and \
-             view_enc_key != true_enc_key:
+            view_enc_key != true_enc_key:
             stale = True
 
     if not stale:
@@ -92,6 +95,7 @@ def get_encryption_status(global_state, sender_email, recipient_emails):
 
 
 def get_participants_type(global_state, sender_email, recipient_emails):
+    """Determine the type of participants in an email."""
     userset_recipient_emails = recipient_emails.intersection(
             global_state.context.userset)
     recipients_in_userset = userset_recipient_emails == recipient_emails
@@ -105,6 +109,7 @@ def get_participants_type(global_state, sender_email, recipient_emails):
 
 
 def get_link_status(global_state, sender_email, recipient_emails):
+    """Deprecated."""
     link_statuses = {}
     link_status_summary = {opt.name: 0 for opt in list(LinkStatus)}
 
@@ -130,6 +135,8 @@ def get_link_status(global_state, sender_email, recipient_emails):
 
 
 def do_simulation_step(index, email, global_state, reports):
+    """Simulate single email."""
+
     recipient_emails = (email.To | email.Cc | email.Bcc) - {email.From}
     if len(recipient_emails) == 0:
         return global_state, reports
@@ -208,12 +215,14 @@ def do_simulation_step(index, email, global_state, reports):
 
 
 def init_simulations(context):
+    """Initialize simulation state and reports."""
     global_state = GlobalState(context)
     reports = SimulationReports(context)
     return global_state, reports
 
 
 def simulate_claimchain(context, pbar=None):
+    """Run simulations."""
     logger.info('Simulating ClaimChain')
     logger.info('Common agent settings: %s', AgentSettings.get_default())
 
