@@ -6,11 +6,10 @@
 This repo contains simulations for in-band public key distribution for messaging using ClaimChains. See the main [web page](https://claimchain.github.io) to learn about ClaimChain.
 
 ## Quickstart with Binder
-
-You can quickly launch and play with the notebooks online using [Binder](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks).
+You can launch and run the notebooks *online* using [Binder](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks)
+without the need to install anything locally.
 
 ## Local quickstart
-
 On a Debian-based system, you can set up the code and launch the notebooks
 in three steps:
 
@@ -26,13 +25,16 @@ make data
 
 3. Run the notebooks:
 ```
-venv/bin/jupyter notebook
+venv/bin/jupyter notebook notebooks
 ```
+
+The last command will open browser window with [Jupyter](https://jupyter.org/)
+running.
+
 
 ## Details
 
 ### Installation
-
 You will need Python 3 and the Python header files installed. On Debian-based systems
 you can achieve this with:
 ```
@@ -59,31 +61,33 @@ Now you can install the requirements:
 pip install -r requirements.txt
 ```
 
+This all can be also done by running ``make deps && make venv``.
+
+
 ### Producing the data
 
 #### Getting pre-computed data files
-You can use our simulation reports, and parsed Enron dataset files, or you can
-re-run them by yourself. You can download our data package from Zenodo (see 
-the [data](data) folder), or run ``make data``.
+You can either use the simulation reports and parsed Enron dataset files that
+we have produced, or you reproduce them yourself. You can download our
+data package from Zenodo (see the [data](data) folder), or by running
+``make data``.
 
 #### Running simulations and parsing the dataset on your own
 
 ##### Download and parse the dataset
-
-Just run ``make enron`` from the project root to download and parse the dataset to
-the ``data/enron`` directory.
+Just run ``make enron`` from the project root to download and parse the dataset
+to the ``data/enron/parsed`` directory.
 
 ##### Run the simulations
+To run the simulations from the paper, run ``make reports``. Mind that they
+can use up to 50 GB of RAM, and take upwards of 25 hours on an Intel Xeon E5
+machine. The simulations generate reports containing various useful
+information. The reports are saved to the ``data/reports`` directory.
 
-To run all simulations from the paper, run ``make reports``. Mind that they
-can use up to 50 GB of RAM. The simulations generate reports containing
-different useful information. The reports are saved to the ``data/reports``
-directory.
 
-
-### Open the notebooks
-
+### Opening the notebooks
 We use Jupyter nodebooks to compute statistics and show the plots. You can
 start Jupyter with ``jupyter notebook``. This will open a browser window,
-where you can select a notebook and run it. The notebooks will save the
-produced plots to the ``images`` directory.
+where you can select a notebook from the [notebooks](notebooks) directory 
+and run it. The notebooks will save all produced plots to the ``images``
+directory.
