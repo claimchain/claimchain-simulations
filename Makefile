@@ -2,8 +2,7 @@
 .PHONY: enron reports
 
 deps:
-	apt-get install python3 python3-dev python3-pip
-	apt-get install build-essential libssl-dev libffi-dev python3-matplotlib parallel
+	@cat apt.txt | xargs apt-get install
 
 venv:
 	python3 -m venv venv
@@ -21,7 +20,6 @@ enron: data/enron
 	PYTHONPATH=. venv/bin/python ./scripts/parse_enron.py
 
 data/enron:
-	@mkdir -p data/enron 
 	@mkdir -p .tmp
 	@echo "# Downloading Enron dataset."
 	@echo "# This will likely take a while..."

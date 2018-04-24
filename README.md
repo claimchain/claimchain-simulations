@@ -28,7 +28,7 @@ venv/bin/jupyter notebook
 
 ### Installation
 
-You will need Python 3 and the Python header files installed. On debian-based systems
+You will need Python 3 and the Python header files installed. On Debian-based systems
 you can achieve this with:
 ```
 apt-get install python3 python3-dev python3-pip
@@ -39,8 +39,7 @@ Some of the dependencies require more system packages:
 apt-get install build-essential libssl-dev libffi-dev python3-matplotlib
 ```
 
-You probably also want venv to isolate your development
-environment:
+You probably also want venv to isolate your development environment:
 ```
 apt-get install python3-venv
 python3 -m venv venv
@@ -54,7 +53,6 @@ Now you can install the requirements:
 ```
 pip install -r requirements.txt
 ```
-
 
 ### Producing the data
 
