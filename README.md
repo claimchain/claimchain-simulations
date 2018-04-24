@@ -18,7 +18,7 @@ in three steps:
 make deps && make venv
 ```
 
-2. Download the pre-computed simulation reports and parsed dataset:
+2. Download the pre-computed simulation reports and the processed dataset:
 ```
 make data
 ```
@@ -67,23 +67,23 @@ All of these can also be done by running ``make deps && make venv``.
 ### Producing the data
 
 #### Getting pre-computed data files
-You can either use the simulation reports and parsed Enron dataset files that
-we have produced, or you reproduce them yourself. You can download our
-data package from Zenodo (see the [data](data) folder), or by running
+You can either use the simulation reports and pre-processed Enron dataset
+files that we have produced, or you reproduce them yourself. You can download
+our data package from Zenodo (see the [data](data) folder), or by running
 ``make data``.
 
 #### Running simulations and parsing the dataset on your own
 
-##### Download and parse the dataset
+##### Download and process the dataset
 The simulations use the [Enron dataset](https://www.cs.cmu.edu/~./enron/) as
-the test load. Run ``make enron`` from the project root to download and parse
+the test load. Run ``make enron`` from the project root to download and process
 the dataset to the ``data/enron/parsed`` directory.
 
 ##### Run the simulations
 To run the simulations from the paper, run ``make reports``. Mind that they
 can use up to 50 GB of RAM, and take upwards of 25 hours on an Intel Xeon E5
 machine. The simulations generate reports containing various useful
-information. The reports are saved to the ``data/reports`` directory.
+information, and are saved to the ``data/reports`` directory.
 
 
 ### Opening the notebooks
