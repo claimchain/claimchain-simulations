@@ -4,10 +4,32 @@
 
 This repo contains simulations for in-band public key distribution powered by ClaimChains. See the main [web page](https://claimchain.github.io) to learn about ClaimChain.
 
-## Installation
+## Local quickstart
 
-This is based on Python 3. You will need python and the python header
-files installed. On debian based systems you can achieve this with
+On a Debian-based system, you can quickly setup the code and play with the notebooks
+in three steps:
+
+1. Install system and Python dependencies:
+```
+make deps && make venv
+```
+
+2. Download the pre-computed simulation reports and parsed dataset:
+```
+make data
+```
+
+3. Run the notebooks:
+```
+venv/bin/jupyter notebook
+```
+
+## Details
+
+### Installation
+
+You will need Python 3 and the Python header files installed. On debian-based systems
+you can achieve this with:
 ```
 apt-get install python3 python3-dev python3-pip
 ```
@@ -26,33 +48,42 @@ source venv/bin/activate
 ```
 
 If you use virtualenv you need to repeat the last command every time you
-want to work in the virtual env.
+want to work in the virtual environment.
 
 Now you can install the requirements:
 ```
 pip install -r requirements.txt
 ```
 
-## Download and parse the dataset
+
+### Producing the data
+
+#### Getting pre-computed data files
+You can use our simulation reports, and parsed Enron dataset files, or you can
+re-run them by yourself. You can download our data package from Zenodo (see 
+the data folder), or run:
+```
+make data
+```
+
+#### Running simulations and parsing the dataset on your own
+
+##### Download and parse the dataset
 
 Just run ``make enron`` from the project root to download and parse the dataset to
 the ``data/enron`` directory.
 
-## Run the simulations
+##### Run the simulations
 
-To run all simulations from the paper, just run ``make reports``. Mind that they
-can use up to 50 GB of RAM. The simulations generate reports containing different
-log information. The reports are saved to the ``data/reports`` directory.
+To run all simulations from the paper, run ``make reports``. Mind that they
+can use up to 50 GB of RAM. The simulations generate reports containing
+different useful information. The reports are saved to the ``data/reports``
+directory.
 
-## Open the notebooks
 
-We use Jupyter nodebooks to compute statistics and show the plots. You can start
-Jupyter with
+### Open the notebooks
 
-```
-upyter notebook
-```
-
-This will open a browser window, where you can select a notebook and run it.
-
-The notebooks will save the produced plots to ``data/images`` directory.
+We use Jupyter nodebooks to compute statistics and show the plots. You can
+start Jupyter with ``jupyter notebook``. This will open a browser window,
+where you can select a notebook and run it. The notebooks will save the
+produced plots to the ``images`` directory.
