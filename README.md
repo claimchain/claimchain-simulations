@@ -61,10 +61,7 @@ pip install -r requirements.txt
 #### Getting pre-computed data files
 You can use our simulation reports, and parsed Enron dataset files, or you can
 re-run them by yourself. You can download our data package from Zenodo (see 
-the data folder), or run:
-```
-make data
-```
+the [data](data) folder), or run ``make data``.
 
 #### Running simulations and parsing the dataset on your own
 
