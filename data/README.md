@@ -1,3 +1,3 @@
 # ClaimChain simulation data
 
-Produced simulation reports, images, and parsed Enron dataset files.
+Simulation reports, and parsed Enron dataset files.
