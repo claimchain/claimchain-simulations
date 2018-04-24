@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/claimchain/claimchain-simulations.svg?branch=master)](https://travis-ci.org/claimchain/claimchain-simulations)
 [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks)
 
-This repo contains simulations for in-band public key distribution for messaging using ClaimChains. See the main [web page](https://claimchain.github.io) to learn about ClaimChain.
+This repo contains simulations of in-band public key distribution for messaging using ClaimChains. See the main [web page](https://claimchain.github.io) to learn about ClaimChain.
 
 ## Quickstart with Binder
 You can launch and run the notebooks *online* using [Binder](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks)
@@ -61,7 +61,7 @@ Now you can install the requirements:
 pip install -r requirements.txt
 ```
 
-This all can be also done by running ``make deps && make venv``.
+All of these can also be done by running ``make deps && make venv``.
 
 
 ### Producing the data
@@ -75,8 +75,9 @@ data package from Zenodo (see the [data](data) folder), or by running
 #### Running simulations and parsing the dataset on your own
 
 ##### Download and parse the dataset
-Just run ``make enron`` from the project root to download and parse the dataset
-to the ``data/enron/parsed`` directory.
+The simulations use the [Enron dataset](https://www.cs.cmu.edu/~./enron/) as
+the test load. Run ``make enron`` from the project root to download and parse
+the dataset to the ``data/enron/parsed`` directory.
 
 ##### Run the simulations
 To run the simulations from the paper, run ``make reports``. Mind that they
