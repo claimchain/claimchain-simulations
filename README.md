@@ -3,11 +3,11 @@
 [![Build Status](https://travis-ci.org/claimchain/claimchain-simulations.svg?branch=master)](https://travis-ci.org/claimchain/claimchain-simulations)
 [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks)
 
-This repo contains simulations for in-band public key distribution powered by ClaimChains. See the main [web page](https://claimchain.github.io) to learn about ClaimChain.
+This repo contains simulations for in-band public key distribution for messaging using ClaimChains. See the main [web page](https://claimchain.github.io) to learn about ClaimChain.
 
-## Quickstart
+## Quickstart with Binder
 
-You can quickly launch and play around with the notebooks online using [Binder](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks).
+You can quickly launch and play with the notebooks online using [Binder](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks).
 
 ## Local quickstart
 
