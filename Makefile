@@ -15,11 +15,11 @@ data:
 	@echo "Unpacking..."
 	tar -xzf .tmp/data.tar.gz -C data
 
-enron: data/enron
+enron: data/enron/maildir
 	@echo "# Parsing..."
 	PYTHONPATH=. venv/bin/python ./scripts/parse_enron.py
 
-data/enron:
+data/enron/maildir:
 	@mkdir -p .tmp
 	@echo "# Downloading Enron dataset."
 	@echo "# This will likely take a while..."
