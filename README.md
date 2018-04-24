@@ -11,7 +11,7 @@ You can quickly launch and play around with the notebooks online using [Binder](
 
 ## Local quickstart
 
-On a Debian-based system, you quickly setup the code and launch the notebooks
+On a Debian-based system, you can set up the code and launch the notebooks
 in three steps:
 
 1. Install system and Python dependencies:
