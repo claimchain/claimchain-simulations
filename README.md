@@ -1,12 +1,17 @@
 # ClaimChain simulations
 
 [![Build Status](https://travis-ci.org/claimchain/claimchain-simulations.svg?branch=master)](https://travis-ci.org/claimchain/claimchain-simulations)
+[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks)
 
 This repo contains simulations for in-band public key distribution powered by ClaimChains. See the main [web page](https://claimchain.github.io) to learn about ClaimChain.
 
+## Quickstart
+
+You can quickly launch and play around with the notebooks online using [Binder](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks).
+
 ## Local quickstart
 
-On a Debian-based system, you can quickly setup the code and play with the notebooks
+On a Debian-based system, you quickly setup the code and launch the notebooks
 in three steps:
 
 1. Install system and Python dependencies:
