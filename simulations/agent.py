@@ -358,7 +358,6 @@ class Agent(object):
                     self.update_chain()
 
             local_object_keys = set()
-            global_object_keys = set()
 
             # Add own chain blocks.
             # NOTE: Requires that chain and tree use separate stores
@@ -372,8 +371,6 @@ class Agent(object):
                         PUBLIC_READER_PARAMS.dh.pk, contact)
                 local_object_keys.update(object_keys)
                 contact_view = self.committed_views.get(contact)
-                # if contact_view is not None:
-                #     global_object_keys.add(contact_view.head)
 
             # Find a minimal amount of proof nodes that need to be included.
             for recipient in recipients:
@@ -393,7 +390,7 @@ class Agent(object):
 
             # Find the minimal amount of objects that need to be sent in
             # this message.
-            relevant_keys = local_object_keys | global_object_keys
+            relevant_keys = local_object_keys
             object_keys_to_send = set()
             for recipient in recipients:
                 if recipient not in self.sent_object_keys_to_recipients:
@@ -413,12 +410,6 @@ class Agent(object):
                 value = self.chain_store.get(key) or self.tree_store.get(key)
                 if value is not None:
                     message_store[key] = value
-
-            # * Global objects...
-            # for key in global_object_keys.intersection(object_keys_to_send):
-            #     value = self.gossip_store.get(key)
-            #     if value is not None:
-            #         message_store[key] = value
 
             self.nb_sent_emails += 1
             return MessageMetadata(
