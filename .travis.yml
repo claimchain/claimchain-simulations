@@ -2,7 +2,7 @@ language: python
 python:
   - "3.6"
 install:
-  - make deps
+  - sudo make deps
   - pip install -r requirements.txt
   - make data
 script:
