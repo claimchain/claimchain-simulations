@@ -3,7 +3,9 @@
 [![Build Status](https://travis-ci.org/claimchain/claimchain-simulations.svg?branch=master)](https://travis-ci.org/claimchain/claimchain-simulations)
 [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks)
 
-This repo contains simulations of in-band public key distribution for messaging using ClaimChains. See the main [web page](https://claimchain.github.io) to learn about ClaimChain.
+This repo contains simulations of in-band public key distribution for messaging
+using ClaimChains. See the main [web page](https://claimchain.github.io) to
+learn about the ClaimChain data structure.
 
 ## Quickstart with Binder
 You can launch and run the notebooks *online* using [Binder](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks)
@@ -35,8 +37,8 @@ running.
 ## Details
 
 ### Installation
-You will need Python 3 and the Python header files installed. On Debian-based systems
-you can achieve this with:
+You will need Python 3 and the Python header files installed. On Debian-based
+systems you can achieve this with:
 ```
 apt-get install python3 python3-dev python3-pip
 ```
