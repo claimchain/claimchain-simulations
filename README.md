@@ -92,3 +92,11 @@ start Jupyter with ``jupyter notebook``. This will open a browser window,
 where you can select a notebook from the [notebooks](notebooks) directory 
 and run it. The notebooks will save all produced plots to the ``images``
 directory.
+
+
+## Acknowledgements
+
+This work is funded by the [NEXTLEAP project](https://nextleap.eu) within the
+European Union’s Horizon 2020 Framework Programme for Research and Innovation
+(H2020-ICT-2015, ICT-10-2015) under grant agreement 688722.
+
