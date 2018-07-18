@@ -45,7 +45,7 @@ apt-get install python3 python3-dev python3-pip
 
 Some of the dependencies require more system packages:
 ```
-apt-get install build-essential libssl-dev libffi-dev python3-matplotlib
+apt-get install build-essential libssl-dev libffi-dev python3-matplotlib parallel
 ```
 
 You probably also want venv to isolate your development environment:
