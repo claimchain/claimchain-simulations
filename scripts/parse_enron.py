@@ -4,6 +4,7 @@
 
 import email
 import hashlib
+import datetime
 import os
 import re
 import time
@@ -27,6 +28,11 @@ class Message:
     To = attrib()
     Cc = attrib()
     Bcc = attrib()
+
+
+def _check_timestamp(mail):
+    # Check if the timestamp is incorrect (some are).
+    return datetime.datetime.fromtimestamp(mail.mtime).year >= 1997
 
 
 def parse_mail(dirpath, filename):
@@ -152,13 +158,19 @@ def process_enron(root_folder='data/enron/maildir/', parsed_folder='data/enron/p
         '''
 
         for folder in sent_folders:
-            for dirpath, _, filenames in os.walk(root_folder + username + '/' + folder):
+            for dirpath, _, filenames in os.walk(
+                    root_folder + username + '/' + folder):
                 for filename in filenames:
                     cnt_msgs += 1  # Increment the message counter
                     try:
                         mail, mID = parse_mail(dirpath, filename)
                     except Exception as e:
                         logging.debug('Discard message: ' + str(e))
+                        continue
+
+                    if not _check_timestamp(mail):
+                        logging.debug('Invalid timestamp')
+                        cnt_msgs_invalid += 1
                         continue
 
                     if mID in seen_msgs:
@@ -228,6 +240,11 @@ def process_enron(root_folder='data/enron/maildir/', parsed_folder='data/enron/p
                         mail, mID = parse_mail(dirpath, filename)
                     except Exception as e:
                         logging.debug('Discard message: ' + str(e))
+                        cnt_msgs_invalid += 1
+                        continue
+
+                    if not _check_timestamp(mail):
+                        logging.debug('Invalid timestamp')
                         cnt_msgs_invalid += 1
                         continue
 
