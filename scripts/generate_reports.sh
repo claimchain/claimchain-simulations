@@ -1,12 +1,12 @@
 #!/bin/bash
 
 NPROC=${NPROC:=4}
-PYTHON=${PYTHON:=/usr/bin/python3}
+PYTHON=${PYTHON:=PYTHONPATH=. python3}
 
 echo "PYTHON=$PYTHON; NPROC=$NPROC";
 
 PUBLIC_BREAKPOINT_INDEX=5
-BREAKPOINTS_FILE=scripts/breakpoints.txt
+BREAKPOINTS_FILE=settings/breakpoints.txt
 PUBLIC_BREAKPOINT="$(head -n $PUBLIC_BREAKPOINT_INDEX $BREAKPOINTS_FILE | tail -1)"
 
 OUTPUT_DIR=data/reports
@@ -26,3 +26,4 @@ $PYTHON scripts/run_simulation.py \
     --introduction_policy=public_contacts \
     --log_offset $PUBLIC_BREAKPOINT \
     --output $OUTPUT_DIR/$PUBLIC_OUT_PREFIX-$PUBLIC_BREAKPOINT.pkl
+
