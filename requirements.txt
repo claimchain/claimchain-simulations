@@ -5,7 +5,6 @@ backcall==0.1.0
 base58==1.0.2
 bleach==3.0.2
 cffi==1.11.5
--e git+https://github.com/gdanezis/claimchain-core@810dfbc92e8efec78e54f3143701cf1888b3c210#egg=claimchain
 coverage==4.5.1
 cycler==0.10.0
 decorator==4.3.0
@@ -14,7 +13,6 @@ defusedxml==0.5.0
 docutils==0.14
 entrypoints==0.2.3
 future==0.16.0
--e git+https://github.com/gdanezis/rousseau-chain@d5c82d3250291e1498389cc79cd626461e0ba8ac#egg=hippiehug&subdirectory=hippiehug-package
 ipykernel==5.1.0
 ipython==7.0.1
 ipython-genutils==0.2.0
@@ -39,7 +37,6 @@ numpy==1.15.2
 pandas==0.23.4
 pandocfilters==1.4.2
 parso==0.3.1
--e git+https://github.com/bogdan-kulynych/petlib.git@48a8d614743ef9396d80a76d3636749d103ddb3b#egg=petlib
 pexpect==4.6.0
 pickleshare==0.7.5
 pluggy==0.7.1
@@ -73,3 +70,6 @@ traitlets==4.3.2
 wcwidth==0.1.7
 webencodings==0.5.1
 widgetsnbextension==3.4.2
+-e git+https://github.com/bogdan-kulynych/petlib.git@48a8d614743ef9396d80a76d3636749d103ddb3b#egg=petlib
+-e git+https://github.com/gdanezis/rousseau-chain@d5c82d3250291e1498389cc79cd626461e0ba8ac#egg=hippiehug&subdirectory=hippiehug-package
+-e git+https://github.com/gdanezis/claimchain-core@810dfbc92e8efec78e54f3143701cf1888b3c210#egg=claimchain
