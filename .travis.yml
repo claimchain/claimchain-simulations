@@ -2,7 +2,7 @@ language: python
 python:
   - "3.6"
 install:
-  - sudo apt update
+  - sudo apt update -qq
   - sudo make deps
   - pip install -r requirements.txt
   - make data
