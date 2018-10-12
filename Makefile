@@ -11,7 +11,7 @@ venv:
 data:
 	@echo "# Downloading pre-computed reports and parsed dataset files."
 	@mkdir -p .tmp
-	wget https://zenodo.org/record/1228178/files/data.tar.gz -P .tmp
+	wget https://zenodo.org/record/1460969/files/data.tar.gz -P .tmp
 	@echo "Unpacking..."
 	tar -xzf .tmp/data.tar.gz -C data
 
