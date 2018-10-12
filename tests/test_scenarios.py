@@ -6,8 +6,8 @@ from simulations.scenarios import *
 from simulations.agent import *
 
 
-# TODO: Investigate why this differs by one from dummies.
-PUBLIC_NB_PLAINTEXTS = 721
+# TODO: Investigate why this differs from dummies.
+PUBLIC_NB_PLAINTEXTS = 717
 PRIVATE_NB_PLAINTEXTS = 743
 
 
