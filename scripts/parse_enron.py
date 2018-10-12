@@ -21,7 +21,7 @@ email_pattern = re.compile('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
 
 
 @attrs
-class Message:
+class Message(object):
     '''Sender, timestamp, public (To/Cc) and hidden (Bcc) recipients.'''
     From = attrib()
     mtime = attrib()
