@@ -2,7 +2,7 @@
 .PHONY: enron reports
 
 deps:
-	@cat apt.txt | xargs apt-get install
+	@cat apt.txt | xargs apt-get install -y
 
 venv:
 	python3 -m venv venv
