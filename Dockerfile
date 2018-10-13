@@ -19,8 +19,7 @@ RUN apt-get install -y build-essential -qq
 COPY . ${HOME}
 RUN make deps
 RUN make data > /dev/null 2>&1
-RUN pip3 install --no-cache --upgrade pip
-RUN pip3 install -r requirements.txt
+RUN pip3 install -qq --no-cache --upgrade pip
+RUN pip3 install -qq -r requirements.txt
 
-USER NB_USER
 CMD ["jupyter", "notebook", "--ip", "0.0.0.0"]
