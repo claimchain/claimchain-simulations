@@ -1,10 +1,16 @@
 # ClaimChain simulations
 
 [![Build Status](https://travis-ci.org/claimchain/claimchain-simulations.svg?branch=master)](https://travis-ci.org/claimchain/claimchain-simulations)
+[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks)
 
 This repo contains simulations of in-band public key distribution for messaging
 using ClaimChains. See the main [web page](https://claimchain.github.io) to
 learn about the ClaimChain data structure.
+
+## Quickstart with Binder
+You can launch and run the notebooks for exploring and visualizing the simulations *online* using
+[Binder](https://mybinder.org/v2/gh/claimchain/claimchain-simulations/master?filepath=notebooks)
+without the need to install anything locally.
 
 ## Local quickstart
 On a Debian-based system, you can set up the code and launch the notebooks
@@ -40,7 +46,7 @@ apt-get install python3 python3-dev python3-pip
 
 Some of the dependencies require more system packages:
 ```
-apt-get install build-essential libssl-dev libffi-dev python3-matplotlib parallel
+apt-get install wget git build-essential libssl-dev libffi-dev python3-matplotlib parallel
 ```
 
 You probably also want venv to isolate your development environment:
