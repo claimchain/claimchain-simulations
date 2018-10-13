@@ -8,7 +8,7 @@ from simulations.agent import *
 
 # TODO: Investigate why this differs from dummies.
 PUBLIC_NB_PLAINTEXTS = 720
-PRIVATE_NB_PLAINTEXTS = 743
+PRIVATE_NB_PLAINTEXTS = 746
 
 
 @pytest.mark.parametrize('agent_setting', [
